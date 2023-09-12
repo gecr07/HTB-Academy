@@ -84,6 +84,10 @@ Set-ADUser -Identity amasters -ChangePasswordAtLogon $true
 
 ## Create OU
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/48e078f4-41c9-49f2-b8ae-d998109d4ebe)
+
+FIjate como va la ruta de la carpeta mas anidada a la menos ( por asi decirlo)
+
 ```
 
 New-ADOrganizationalUnit -Name "Security Analysts" -Path "OU=IT,OU=HQ-NYC,OU=Employees,OU=CORP,DC=INLANEFREIGHT,DC=LOCAL"
@@ -91,7 +95,23 @@ New-ADOrganizationalUnit -Name "Security Analysts" -Path "OU=IT,OU=HQ-NYC,OU=Emp
 ```
 
 
+## Create a group
 
+Fijate como va de la carpeta mas anidada a la menos.
+
+```
+New-ADGroup -Name "Security Analysts" -SamAccountName analysts -GroupCategory Security -GroupScope Global -DisplayName "Security Analysts" -Path "OU=Security Analysts,OU=IT,OU=HQ-NYC,OU=Employees,OU=Corp,DC=INLANEFREIGHT,DC=LOCAL" -Description "Members of this group are Security Analysts under the IT OU"
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/53acbf99-ae33-453f-89a7-141c8f322c90)
+
+```
+Copy-GPO -SourceName "Logon Banner" -TargetName "Security Analysts Control"
+```
+
+```
+New-GPLink -Name "Security Analysts Control" -Target "ou=Security Analysts,ou=IT,OU=HQ-NYC,OU=Employees,OU=Corp,dc=INLANEFREIGHT,dc=LOCAL" -LinkEnabled Yes
+```
 
 
 
