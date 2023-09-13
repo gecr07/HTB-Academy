@@ -186,6 +186,26 @@ Copy-GPO -SourceName "Logon Banner" -TargetName "Security Analysts Control"
 New-GPLink -Name "Security Analysts Control" -Target "ou=Security Analysts,ou=IT,OU=HQ-NYC,OU=Employees,OU=Corp,dc=INLANEFREIGHT,dc=LOCAL" -LinkEnabled Yes
 ```
 
+En Active Directory, el "Logon Name" generalmente se refiere al "SAMAccountName" (Security Account Manager Account Name) de un usuario. El SAMAccountName es un nombre de cuenta único que se utiliza para autenticar a un usuario en un dominio de Windows. Es la parte del nombre de usuario que se utiliza para iniciar sesión en un sistema Windows o en una red basada en Active Directory.
+
+## Members of a group
+
+```
+Get-ADGroupMember
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/1bee8505-d3d0-4016-a91b-3e67b46e9c6f)
+
+Para agregar y linkear GPOS lo hicieron con PS no encontre yo otra manera.
+
+## Group policie
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/5468ac33-d420-4543-ae23-82470ca68d6a)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/ea88d5c0-79c8-41b6-ac6c-09cca8d0ef6d)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/cbd7fbe8-4937-4188-8324-ff24353c19a5)
+
 
 # Introduction to Active Directory Enumeration & Attacks
 
