@@ -9,6 +9,76 @@ Para este modulo se van a hacer tareas que haria alguien que administra un activ
 xfreerdp /v:10.129.202.146 /u:htb-student_adm /p:Academy_student_DA!
 
 ```
+## Estructura
+
+La estructura basica de active directory es
+
+FOREST (que contiene uno o mas) -> dominios (que a su vez pueden tener subdominios) -> Subdominios - > OU Unidades Organizativas ( aqui no entiendo muy bien) -> Objetos (computadores GPO etc)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/0b1e7b78-5d54-4628-9b58-9c2cfc09f875)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/11efde5b-7bf4-4194-8c13-afadacf7b5be)
+
+Una analogia buena es que un FOREST es como un pais y un dominio son como sus estados.}
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/270739a3-8025-403e-a392-8e4599c23823)
+
+## Kerberos
+
+La autenticacion de kerberos funciona mas o menos asi:
+
+> As part of Active Directory Domain Services (AD DS), Domain Controllers have a Kerberos Key Distribution Center (KDC) that issues tickets.
+
+> 1. When a user initiates a login request to a system, the client they are using to authenticate requests a ticket from the KDC, encrypting the request with the user's password.
+> 2.  If the KDC can decrypt the request (AS-REQ) using their password, it will create a Ticket Granting Ticket (TGT) and transmit it to the user. 
+> 3. The user then presents its TGT to a Domain Controller to request a Ticket Granting Service (TGS) ticket, encrypted with the associated service's NTLM password hash. 
+> 4. Finally, the client requests access to the required service by presenting the TGS to the application or service, which decrypts it with its password hash. If the entire process completes appropriately, the user will be permitted to access the requested service or application.
+
+> La autenticación Kerberos desacopla efectivamente las credenciales de los usuarios de sus solicitudes a los recursos consumibles, asegurando que su contraseña no se transmita a través de la red (es decir, accediendo a un sitio interno de intranet de SharePoint). El Centro de distribución de claves Kerberos (KDC) no registra transacciones anteriores. En cambio, el ticket del Servicio de concesión de tickets (TGS) de Kerberos se basa en un Ticket de concesión de tickets (TGT) válido. Se supone que si el usuario tiene un TGT válido, deberá haber acreditado su identidad. El siguiente diagrama explica este proceso en un nivel alto.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/10286f6f-1d91-44e5-b87e-a671a359a9d3)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/ee8df339-ab45-49a0-b8c2-3b886e4505b0)
+
+
+El protocolo Kerberos utiliza el puerto 88 (tanto TCP como UDP). Al enumerar un entorno de Active Directory, a menudo podemos localizar controladores de dominio realizando escaneos de puertos en busca del puerto 88 abierto utilizando una herramienta como Nmap.
+
+
+## LDAP 
+
+ LDAP utiliza el puerto 389 y LDAP sobre SSL (LDAPS) se comunica a través del puerto 636.
+
+ ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/d8063d86-ebdf-4e1c-9320-23cb8306eec6)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/12a35522-7290-4a88-9b35-dd617b360ee4)
+
+
+## Autenticación NTLM
+
+
+> Aside from Kerberos and LDAP, Active Directory uses several other authentication methods which can be used (and abused) by applications and services in AD. These include LM, NTLM, NTLMv1, and NTLMv2. LM and NTLM here are the hash names, and NTLMv1 and NTLMv2 are authentication protocols that utilize the LM or NT hash. Below is a quick comparison between these hashes and protocols, which shows us that, while not perfect by any means, Kerberos is often the authentication protocol of choice wherever possible. It is essential to understand the difference between the hash types and the protocols that use them.
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/acfe0be0-9a43-467e-a256-38257c9a8217)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/90d64bb4-1857-4881-a331-83e20e272651)
+
+> Es importante tener en cuenta que una cuenta de máquina ( NT AUTHORITY\SYSTEMnivel de acceso) en un entorno AD tendrá la mayoría de los mismos derechos que una cuenta de usuario de dominio estándar. Esto es importante porque no siempre necesitamos obtener un conjunto de credenciales válidas para la cuenta de un usuario individual para comenzar a enumerar y atacar un dominio (como veremos en módulos posteriores). Podemos obtener SYSTEMacceso nivelado a un host de Windows unido a un dominio mediante un exploit de ejecución remota exitosa de código o escalando privilegios en un host. Este acceso a menudo se pasa por alto porque sólo es útil para saquear datos confidenciales (es decir, contraseñas, claves SSH, archivos confidenciales, etc.) en un host en particular. En realidad, el acceso en el contexto de laSYSTEMLa cuenta nos permitirá acceso de lectura a gran parte de los datos dentro del dominio y es un excelente punto de partida para recopilar la mayor cantidad de información posible sobre el dominio antes de continuar con los ataques aplicables relacionados con AD.
+
+## Groups
+
+ Hay dos tipos principales: security y distribution grupos.
+
+ ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/171abde6-4903-440e-b4f0-353ff4c016db)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/f70a0968-a5c8-4ad3-97ff-e62ee06fbcd2)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/319ed476-9d83-440f-8875-5cb683e2cecb)
+
+
+
 
 ## Snap-in 
 
