@@ -96,6 +96,9 @@ En resumen, los Snap-ins en Active Directory son extensiones que se agregan a la
 
 ## Agregar usuarios
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/45fc6349-db06-4ebf-804d-ec5edd7b166f)
+
+
 Para estas actividades nos recomiendan estas paginas. Dentro vienen todas las acciones que se pueden hacer
 
 > https://learn.microsoft.com/en-us/powershell/module/activedirectory/?view=windowsserver2022-ps
@@ -183,6 +186,8 @@ Copy-GPO -SourceName "Logon Banner" -TargetName "Security Analysts Control"
 New-GPLink -Name "Security Analysts Control" -Target "ou=Security Analysts,ou=IT,OU=HQ-NYC,OU=Employees,OU=Corp,dc=INLANEFREIGHT,dc=LOCAL" -LinkEnabled Yes
 ```
 
+
+# Introduction to Active Directory Enumeration & Attacks
 
 
 
