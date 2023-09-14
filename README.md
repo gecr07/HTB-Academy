@@ -209,18 +209,68 @@ Para agregar y linkear GPOS lo hicieron con PS no encontre yo otra manera.
 
 # Introduction to Active Directory Enumeration & Attacks
 
+Aqui narra primero la enumracion externa ya dentro pone wireshark luego tcpdump
+
+```
+sudo tcpdum -i tun0
+sudo responder -I ens224 -A
+En modo analisis el responder (-A)
+```
+
+Saca con esto IPs y despues escanea encuentra el DC
+
+> Los protocolos NBT-NS (NetBIOS Name Service) y mDNS (Multicast DNS) son dos protocolos de resolución de nombres que se utilizan en redes informáticas para descubrir y resolver nombres de dispositivos en la red. Aunque ambos cumplen una función similar, operan en contextos diferentes
+
+> En resumen, NBT-NS se utiliza en redes Windows para resolver nombres NetBIOS, mientras que mDNS se utiliza en redes basadas en IP para resolver nombres de host y servicios en redes locales. Ambos protocolos son importantes en sus respectivos contextos y cumplen funciones de resolución de nombres en redes específicas.
 
 
+## Kerbrute
+
+Se aprovecha de la vulnerabilidad de autenticacion de kerberos y no levanta tantas alertas. Lo estamos tirando contra un DC que encontramos tenia hasta el puerto 88 abierto.
+
+```
+kerbrute userenum -d INLANEFREIGHT.LOCAL --dc 172.16.5.5 jsmith.txt -o valid_ad_users
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/dc8b50bb-47f2-4c92-8a5b-ce1d313abaa0)
+
+## LLMNR & NBT-NS
+
+> Link-Local Multicast Name Resolution (LLMNR) and NetBIOS Name Service (NBT-NS) are Microsoft Windows components that serve as alternate methods of host identification that can be used when DNS fails. If a machine attempts to resolve a host but DNS resolution fails, typically, the machine will try to ask all other machines on the local network for the correct host address via LLMNR.
 
 
+> Utiliza puerto 5355 sobre UDP de forma nativa. Si LLMNR falla, se utilizará NBT-NS. NBT-NS identifica los sistemas en una red local por su nombre NetBIOS. NBT-NS utiliza puerto 137 sobre UDP.
 
+El truco aquí es que cuando se utilizan LLMNR/NBT-NS para la resolución de nombres, CUALQUIER host de la red puede responder. Aquí es donde entramos nosotros( con el Responder) a envenenar estas peticiones. Con el acceso a la red, podemos falsificar una fuente autorizada de resolución de nombres (en este caso, un host que se supone pertenece al segmento de red) en el dominio de transmisión respondiendo al tráfico LLMNR y NBT-NS como si tuvieran una respuesta para la solicitud. anfitrión.
 
+Este esfuerzo de envenenamiento se realiza para lograr que las víctimas se comuniquen con nuestro sistema pretendiendo que nuestro sistema fraudulento conoce la ubicación del host solicitado. Si el host solicitado requiere resolución de nombre o acciones de autenticación, podemos capturar el hash NetNTLM y someterlo a un ataque de fuerza bruta fuera de línea en un intento de recuperar la contraseña en texto sin cifrar. 
 
+La solicitud de autenticación capturada también puede retransmitirse para acceder a otro host o usarse contra un protocolo diferente (como LDAP) en el mismo host. La suplantación de identidad de LLMNR/NBNS combinada con la falta de firma SMB a menudo puede conducir al acceso administrativo en los hosts dentro de un dominio. Los ataques de retransmisión SMB se tratarán en un módulo posterior sobre movimiento lateral.
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/462d8c81-99f4-4db6-a54a-d0b7db95bc99)
 
+## Herramientas
 
+Las herraientas que se pueden utilizar son:
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/0a7c26c8-846a-415e-8e45-f675a2c1ed08)
 
+El responder por defecto guarda los hashes en:
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/809da788-616e-4a93-8830-41006bf0cb49)
+
+```
+sudo responder -I ens224 
+```
+
+Una vez que tengamos suficiente, necesitamos obtener estos hashes en un formato utilizable para nosotros ahora mismo. Los hashes NetNTLMv2 son muy útiles una vez descifrados, pero no se pueden utilizar para técnicas como pash-the-hash, lo que significa que tenemos que intentar descifrarlos sin conexión. Podemos hacer esto con herramientas como Hashcat y John.
+
+```
+hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt 
+```
+ Password al final (lo agrega)
+
+ ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/70321032-fae0-4b0c-b869-4ab1cd955e06)
 
 
 
