@@ -296,7 +296,7 @@ Import-Module .\Inveigh.ps1
 (Get-Command Invoke-Inveigh).Parameters
 ```
 
-## C# Inveigh (InveighZero)
+## C# Inveigh (InveighZero) El responder de Windows
 
 Aqui tiene 2 una version de ps que ya no se actualiza y la de C#
 
@@ -316,6 +316,126 @@ GET NTLMV2USERNAMES
 ```
 
 ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/16bf2f6f-f330-4067-9bd7-30a496dea990)
+
+## Enumerating the Password Policy - from Linux - Credentialed
+
+
+Esto sirve para poder hacer password spraying. Y estas herramientas tambien pueden enumerar sessiones Nulas.
+
+```
+crackmapexec smb 172.16.5.5 -u avazquez -p Password123 --pass-pol
+```
+
+Enumerar sessiones nulas
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/4020a98b-3665-48ff-912e-e489350e5529)
+
+
+```
+rpcclient -U "" -N 172.16.5.5
+querydominfo
+enumdomusers
+
+```
+
+Otras opciones
+
+
+```
+enum4linux -P 172.16.5.5
+### Nueva tool ( mas bien re escrita)
+
+enum4linux-ng -P 172.16.5.5 -oA ilfreight
+
+```
+
+Enumerating Null Session - from Windows
+
+```
+ net use \\host\ipc$ "" /u:""
+C:\htb> net use \\DC01\ipc$ "password" /u:guest
+System error 1326 has occurred.
+
+The user name or password is incorrect.
+```
+
+### LDAP anonymous bind
+
+LDAP anonymous binds allow unauthenticated attackers to retrieve information from the domain, such as a complete listing of users, groups, computers, user account attributes, and the domain password policy. This is a legacy configuration, and as of Windows Server 2003, only authenticated users are permitted to initiate LDAP requests. We still see this configuration from time to time as an admin may have needed to set up a particular application to allow anonymous binds and given out more than the intended amount of access, thereby giving unauthenticated users access to all objects in AD.
+
+```
+ldapsearch -h 172.16.5.5 -x -b "DC=INLANEFREIGHT,DC=LOCAL" -s sub "*" | grep -m 1 -B 10 pwdHistoryLength
+```
+
+### Enumerating the Password Policy - from Windows
+
+Se puede sacar la politica de passwords con ayuda de la herramienta net
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/64726871-08b2-4056-87b1-8c528cf53383)
+
+
+```
+net accounts
+```
+
+### PasswordComplexity
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/873047a8-57f0-4a51-9e89-da793932af9f)
+
+
+> Password complexity is enabled, meaning that a user must choose a password with 3/4 of the following: an uppercase letter, lowercase letter, number, special character (Password1 or Welcome1 would satisfy the "complexity" requirement here, but are still clearly weak passwords).
+
+> La complejidad de la contraseña está habilitada, lo que significa que un usuario debe elegir una contraseña con 3/4 de los siguientes: una letra mayúscula, una letra minúscula, un número, un carácter especial ( Password1o Welcome1satisfaría el requisito de "complejidad" aquí, pero siguen siendo contraseñas claramente débiles) .
+
+Si nos damos cuenta aqui le preguntamos siempre al DC (no entiendo aun porque)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6d207489-8cc2-4a2e-8fda-aac5b4e2a5fd)
+
+
+## Password spraying y Sesión SMB NULL para extraer la lista de usuarios
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/61ce9d85-f8a1-45d0-9828-991248ef3980)
+
+Elimina cuentas que este cerca del lumbral de bloqueo de tu lista con ayuda de cme
+
+```
+crackmapexec smb 172.16.5.5 --users
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/5e3c5a43-8812-46db-8d2e-f28e7a003591)
+
+
+> Finalmente, podemos usar CrackMapExeccon la --usersbandera. Esta es una herramienta útil que también mostrará badpwdcount(intentos de inicio de sesión no válidos), para que podamos eliminar cualquier cuenta de nuestra lista que esté cerca del umbral de bloqueo. También muestra el baddpwdtime, que es la fecha y hora del último intento de contraseña incorrecta, para que podamos ver qué tan cerca está una cuenta de restablecerse badpwdcount. En un entorno con varios controladores de dominio, este valor se mantiene por separado en cada uno de ellos. Para obtener un total preciso de los intentos de contraseña incorrecta de la cuenta, tendríamos que consultar cada controlador de dominio y usar la suma de los valores o consultar el controlador de dominio con la función FSMO del emulador de PDC.
+
+
+### Kerbebrute
+
+> Kerberos contarán para las cuentas de inicio de sesión fallidas de una cuenta y pueden provocar el bloqueo de la cuenta, por lo que aún debemos tener cuidado independientemente de el método elegido.
+
+Igual aqui el tarjet es el DC
+
+```
+kerbrute userenum -d inlanefreight.local --dc 172.16.5.5 /opt/jsmith.txt
+```
+
+Y ya teniendo un usuario y contraseña valido
+
+```
+
+sudo crackmapexec smb 172.16.5.5 -u htb-student -p Academy_student_AD! --users
+
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
