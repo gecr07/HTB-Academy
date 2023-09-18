@@ -668,4 +668,20 @@ Cert de AD
 >  https://www.alteredsecurity.com/post/certified-red-team-professional-crtp
 
 
+## Enum  AD with Windows
+
+###  ActiveDirectory PowerShell module
+
+The ActiveDirectory PowerShell module is a group of PowerShell cmdlets for administering an Active Directory environment from the command line. 
+
+```
+Import-Module ActiveDirectory
+Para checar
+Get-Module
+```
+
+
+
+
+
 
