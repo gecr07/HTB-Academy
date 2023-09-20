@@ -670,7 +670,12 @@ Cert de AD
 
 ## Enum  AD with Windows
 
-###  ActiveDirectory PowerShell module
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/9b0c15ee-2df6-48eb-b9e5-596004c2bea3)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/920f510e-807f-41e7-bad1-77aea843af5b)
+
+
+###  ActiveDirectory PowerShell module ( esta es una manera bastante silenciosa de enumerar el directorio)
 
 The ActiveDirectory PowerShell module is a group of PowerShell cmdlets for administering an Active Directory environment from the command line. 
 
@@ -678,7 +683,81 @@ The ActiveDirectory PowerShell module is a group of PowerShell cmdlets for admin
 Import-Module ActiveDirectory
 Para checar
 Get-Module
+Get-Module -ListAvailable
 ```
+
+### Informacion basica del dominio
+
+Este comando nos da info basica
+
+```
+Get-ADDomain
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/a44a44a0-b939-4594-a972-5936a5355138)
+
+### Enumerar usuarios 
+
+Para enumerar todos los usuarios del dominio
+
+```
+Get-ADUser -Filter * -SearchBase "DC=INLANEFREIGHT,DC=LOCAL"
+Get-ADUser -Filter * 
+```
+
+Para enumerar un solo usuario
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/25dfa1ba-f65c-4e38-a291-ea22bce18b59)
+
+```
+Get-ADUser user
+```
+Cuentas con el campo SPN lleno
+
+> This will print out helpful information like the domain SID, domain functional level, any child domains, and more. Next, we'll use the Get-ADUser cmdlet. We will be filtering for accounts with the ServicePrincipalName property populated. This will get us a listing of accounts that may be susceptible to a Kerberoasting attack, which we will cover in-depth after the next section.
+
+```
+Get-ADUser -Filter {ServicePrincipalName -ne "$null"} -Properties ServicePrincipalName
+```
+
+### Verificar los TRUST del dominio
+
+```
+Get-ADTrust -Filter *
+```
+
+### Group enumeration
+
+Para saber el nombre de todos los grupos solo su nombre
+
+```
+Get-ADGroup -Filter * | select name
+```
+
+Para ver un solo grupo
+
+```
+Get-ADGroup Users
+Get-ADGroup -Identity "Backup Operators"
+```
+
+### Enumerar los miembros de un grupo
+
+```
+Get-ADGroupMember -Identity "Backup Operators"
+
+```
+
+Solo tiene un miembro 
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/77af59d8-a67c-4a66-84d6-5fd7055f0d90)
+
+> We can see that one account, backupagent, belongs to this group. It is worth noting this down because if we can take over this service account through some attack, we could use its membership in the Backup Operators group to take over the domain. We can perform this process for the other groups to fully understand the domain membership setup. Try repeating the process with a few different groups. You will see that this process can be tedious, and we will be left with an enormous amount of data to sift through. We must know how to do this with built-in tools such as the ActiveDirectory PowerShell module, but we will see later in this section just how much tools like BloodHound can speed up this process and make our results far more accurate and organized.
+
+
+
+
+
 
 
 
