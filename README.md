@@ -956,4 +956,23 @@ Para el comando route print:
 
 >  Cualquier red que aparezca en la tabla de enrutamiento es una vía potencial para el movimiento lateral porque se accede a ellas lo suficiente como para agregar una ruta, o se ha configurado administrativamente allí para que el host sepa cómo acceder a los recursos en el dominio. Estos dos comandos pueden ser especialmente útiles en la fase de descubrimiento de una evaluación de caja negra donde tenemos que limitar nuestro escaneo.
 
+## Enum with Windows Management Instrumentation (WMI)
 
+> Windows Management Instrumentation (WMI) is a scripting engine that is widely used within Windows enterprise environments to retrieve information and run administrative tasks on local and remote hosts. For our usage, we will create a WMI report on domain users, groups, processes, and other information from our host and other domain hosts.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/3f70cbd8-a6fd-480e-a104-c60002f79c91)
+
+## Enum NET commands ( importante)
+
+Para que no sea tan detectado 
+
+> If you believe the network defenders are actively logging/looking for any commands out of the normal, you can try this workaround to using net commands. Typing net1 instead of net will execute the same functions without the potential trigger from the net string.
+
+```
+net user # Usuarios locales
+net user /domain # Usuarios del dominio
+net group /domain	#Information about domain groups 
+net localgroup # los grupos locales
+
+
+```
