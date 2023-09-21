@@ -973,6 +973,21 @@ net user # Usuarios locales
 net user /domain # Usuarios del dominio
 net group /domain	#Information about domain groups 
 net localgroup # los grupos locales
+```
 
+Algunos comandos que utilice para responder las preguntas
 
 ```
+Get-ADUser -Filter {Enabled -eq $false} | select SamAccountName # Usuarios deshabilitados
+net user /domain bross
+Get-MpComputerStatus # se usa para ver Gets the status of antimalware software on the computer. Se saca la version 
+(AMProductVersion                : 4.18.2109.6)
+Get-ADComputer -Identity "ACADEMY-EA-MS01" -Properties * # Enumera todo sobre la computadora
+```
+
+## Kerberoasting - from Linux
+
+Our enumeration up to this point has given us a broad picture of the domain and potential issues. We have enumerated user accounts and can see that some are configured with Service Principal Names. Let's see how we can leverage this to move laterally and escalate privileges in the target domain.
+
+> This attack targets Service Principal Names (SPN) accounts. SPNs are unique identifiers that Kerberos uses to map a service instance to a service account in whose context the service is running.
+
