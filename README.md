@@ -1109,7 +1109,39 @@ Podemos usar Rubeus con la /tgtdeleg para especificar que solo queremos cifrado 
 > Nota: Esto no funciona con un controlador de dominio de Windows Server 2019, independientemente del nivel funcional del dominio. Siempre devolverá un ticket de servicio cifrado con el nivel más alto de cifrado admitido por la cuenta de destino. Dicho esto, si nos encontramos en un dominio con controladores de dominio ejecutándose en Server 2016 o anterior (lo cual es bastante común), habilitar AES no mitigará parcialmente el Kerberoasting al devolver solo tickets cifrados AES, que son mucho más difíciles de descifrar, pero más bien permitirá que un atacante solicite un ticket de servicio cifrado RC4. En los DC de Windows Server 2019, habilitar el cifrado AES en una cuenta SPN dará como resultado que recibamos un ticket de servicio AES-256 (tipo 18), que es sustancialmente más difícil (pero no imposible) de descifrar, especialmente si se utiliza una contraseña de diccionario relativamente débil. en uso.
 
 
+## Access Control List (ACL) Abuse Primer
+
+For security reasons, not all users and computers in an AD environment can access all objects and files. These types of permissions are controlled through Access Control Lists (ACLs).
+
+> In their simplest form, ACLs are lists that define a) who has access to which asset/resource and b) the level of access they are provisioned.
+
+> The settings themselves in an ACL are called Access Control Entities (ACEs). Each ACE maps back to a user, group, or process (also known as security principals) and defines the rights granted to that principal. Every object has an ACL, but can have multiple ACEs because multiple security principals can access objects in AD. ACLs can also be used for auditing access within AD.
+
+### What are security principals?
+
+A security principal is any entity that can be authenticated by the operating system, such as a user account, a computer account, or a thread or process that runs in the security context of a user or computer account, or the security groups for these accounts. Security principals have long been a foundation for controlling access to securable resources on Windows computers. Each security principal is represented in the operating system by a unique security identifier (SID).
 
 
+Each ACE maps back to a user, group, or process (also known as security principals) and defines the rights granted to that principal. Every object has an ACL, but can have multiple ACEs because multiple security principals can access objects in AD.
+
+ACLs can also be used for auditing access within AD. 
+
+There are two types of ACLs.Entonces en resumen esta asi
+
+ACL (Discretionary Access Control List (DACL) "Aqui estan los permisos entradas ACEs" y System Access Control Lists (SACL) "aqui estan los logs por asi decirlo")
+   DACL
+      -----> ACE (Access Control Entities)
+
+
+### Discretionary Access Control List( DACL):
+
+Define a qué principios de seguridad se concede o se deniega el acceso a un objeto. Las DACL se componen de ACE que permiten o deniegan el acceso. Cuando alguien intenta acceder a un objeto, el sistema comprobará en la DACL el nivel de acceso permitido. Si no existe una DACL para un objeto, todos los que intenten acceder al objeto tendrán todos los derechos. Si existe una DACL, pero no tiene ninguna entrada ACE que especifique configuraciones de seguridad específicas, el sistema negará el acceso a todos los usuarios, grupos o procesos que intenten acceder a ella.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/75cba44e-7693-4296-8440-b74b76de1a16)
+
+   
+### System Access Control Lists( SACL)
+
+Permite a los administradores registrar los intentos de acceso realizados a objetos seguros.
 
 
