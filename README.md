@@ -1144,4 +1144,116 @@ Define a qué principios de seguridad se concede o se deniega el acceso a un obj
 
 Permite a los administradores registrar los intentos de acceso realizados a objetos seguros.
 
+Entoncds cada ACE dentro tiene 4 campos mas
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/7af08c7c-439f-437b-8948-608332ecbedf)
+
+Mas graficamente se veria asi:
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/0f9fb074-b3aa-4c3e-ad4b-a5152810126a)
+
+
+### Enum ACLs
+
+
+```
+Import-Module .\PowerView.ps1
+$sid = Convert-NameToSid wley
+```
+
+We can then use the Get-DomainObjectACL function to perform our targeted search. In the below example, we are using this function to find all domain objects that our user has rights over by mapping the user's SID using the $sid variable to the SecurityIdentifier property which is what tells us who has the given right over an object. Se enumera todos lo objetos que ese SID tenga permisos.
+
+
+> We can then use the Get-DomainObjectACL function to perform our targeted search. In the below example, we are using this function to find all domain objects that our user has rights over by mapping the user's SID using the $sid variable to the SecurityIdentifier property which is what tells us who has the given right over an object. One important thing to note is that if we search without the flag ResolveGUIDs, we will see results like the below, where the right ExtendedRight does not give us a clear picture of what ACE entry the user wley has over damundsen. This is because the ObjectAceType property is returning a GUID value that is not human readable.
+
+```
+Get-DomainObjectACL -Identity * | ? {$_.SecurityIdentifier -eq $sid}
+```
+
+Entonces esto nos regresa un objeto al que ese SID tiene "right over an object" y esto es lo improtante 00299570-246d-11d0-a768-00aa006e0529.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/fb685907-7462-4521-84fa-1966bf4fc884)
+
+Eso es en lo que te tienes que fijar (ObjectAceType: 00299570-246d-11d0-a768-00aa006e0529) busca en google que tipo de ACE es y es la que permite cambiar el password
+
+> https://learn.microsoft.com/en-us/windows/win32/adschema/r-user-force-change-password.
+
+### Busqueda inversa
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/9ad82d46-bf16-4679-995a-4d0984623b8b)
+
+Esto se puede hacer mas facil con PowerView
+
+```
+ Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $sid} 
+```
+Pero bueno entonces usa este comando para ver que ACE tiene cada usuario. recuerda usar el ya que si no ese campo va a aprecer en un formato no legible (PowerView to show us the ObjectAceType in a human-readable format ).
+
+```
+$sid2 = Convert-NameToSid damundsen
+Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $sid2} -Verbose
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/75f12ab5-7ad1-4136-9c09-bcd0282c854f)
+
+
+
+### Grupos anidados osea un grupo que es miembro de otro ( padre por asi decirlo)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/255c4453-64bd-4a19-9d00-4384cafb0baa)
+
+
+
+```
+Get-DomainGroup -Identity "Help Desk Level 1" | select memberof
+
+$itgroupsid = Convert-NameToSid "Information Technology"
+Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $itgroupsid} -Verbose
+
+```
+
+Convertir de un SID a nombre 
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6f1d8893-2353-43c6-a8a9-74d01601ed1a)
+
+
+```
+ $sid_user=ConvertFrom-SID "S-1-5-21-3842939050-3880317879-2865463114-1164"
+```
+
+> The output above shows that our adunn user has DS-Replication-Get-Changes and DS-Replication-Get-Changes-In-Filtered-Set rights over the domain object. This means that this user can be leveraged to perform a DCSync attack. We will cover this attack in-depth in the DCSync section.
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/7af14775-8824-4769-aee9-3b7bd1dc834d)
+
+
+## Enumeración de ACL con BloodHound
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/21a38b58-e647-47f6-813a-48b624f784e9)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/2f31bf02-278b-4352-a198-c8dcda89028e)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/b0b6f077-061c-435e-a0ab-859a0f0d2363)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
