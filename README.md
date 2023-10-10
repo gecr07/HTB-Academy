@@ -1492,17 +1492,69 @@ Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Desktop
 
 De la información anterior, podemos ver que todos los usuarios del dominio (es decir, alllos usuarios del dominio) pueden utilizar RDP en este host. Es común ver esto en hosts de Servicios de Escritorio remoto (RDS) o hosts utilizados como hosts de salto.
 
+Algo que dice que hace es: Checa que el grupo Domain Users que permisos tienen sobre que host.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/52809843-7aa8-4922-9870-7c34d3478095)
+
+Bueno y el troble shooting 
+
+```
+De alguna formano jala el smbclient no se proque entonces use el mount
+
+sudo mount -t cifs -o username=root,password=toor  //192.168.0.29/Ejemplo /mnt/Windows/
+```
+
+De igual manera se puede conectar desde el GUI de Kali:
+
+```
+# Le pones en en la barra de busqueda de cualquier carpeta
+
+smb://IP/share y te muestra esta pantalla pones el dominio y no hay pierde
+```
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6eab3f97-698b-41ee-8086-5b8349f0c621)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/692c0229-33a1-4d6d-87cb-03302ee281d8)
 
 
+En execution Rights podemos ver que el usuario WLEY esta en el grupo Domain Users el cual tiene permiso de RPD en ACADEMY-AEetc.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/a7ac96c4-9840-408d-b897-95ac6d9e9114)
+
+También podríamos consultar la Analysispestaña y ejecutar las consultas prediseñadas Find Workstations where Domain Users can RDP o Find Servers where Domain Users can RDP.
+
+### Enumeración del grupo de usuarios de administración remota
+
+Para saber si el usuario que tenemos esta en el grupo de Remote Managment Users.
+
+```
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Management Users"
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/4491ee80-0b2a-4509-a47c-224cc2694e63)
 
 
+Ahora sepuede hacer esto mismo pero a nivel de todo el dominio. Lo que vemos en la captura es que el usuario forerend esta dentro de ese grupo para esta maquina pero si queremos ver de todo el dominio nos deja una query
 
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/afa5378f-48bb-46d3-805d-3212801fd2ff)
 
+```
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:CanPSRemote*1..]->(c:Computer) RETURN p2
+```
 
+Una vez que vimos que el usuario forend se encuentra en el grupo de Remote Managmente de la maquina ACADEMY-EA-MS01 que es en la que tenemos logeado el usuario htb-user.
 
+```
+ruby evil-winrm.rb -i 10.129.196.236 -u forend
+## Desde Windows
+PS C:\htb> $password = ConvertTo-SecureString "Klmcargo2" -AsPlainText -Force
+PS C:\htb> $cred = new-object System.Management.Automation.PSCredential ("INLANEFREIGHT\forend", $password)
+PS C:\htb> Enter-PSSession -ComputerName ACADEMY-EA-DB01 -Credential $cred
 
-
-
-
+[ACADEMY-EA-DB01]: PS C:\Users\forend\Documents> hostname
+ACADEMY-EA-DB01
+[ACADEMY-EA-DB01]: PS C:\Users\forend\Documents> Exit-PSSession
+PS C:\htb> 
+```
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/bfdcbad4-4ab3-4c6c-89f2-7c25c21314a4)
 
 
