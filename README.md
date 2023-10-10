@@ -1472,6 +1472,8 @@ Explicacion
 En esa imagen checamos el grupo de RPD local nos muestra que todos lo susuarios del dominio pueden hacer RDP. Aqui lo que se entiende es que este es un jump server.
 
 
+## Acceso privilegiado
+
 
 
 
