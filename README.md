@@ -1474,10 +1474,23 @@ En esa imagen checamos el grupo de RPD local nos muestra que todos lo susuarios 
 
 ## Acceso privilegiado
 
+Normalmente, si tomamos el control de una cuenta con derechos de administrador local sobre un host o un conjunto de hosts, podemos realizar un Pass-the-Hashataque para autenticarnos a través del protocolo SMB.
+
+Hay varias otras formas en que podemos movernos por un dominio de Windows:
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/16d6ab1c-eeff-4041-a2e8-b073b3674ba1)
+
+Vamos a checar localmente.
+
+```
+#PowerView
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Desktop Users"
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6c26baf1-bf54-4848-950b-9c940c8bbec6)
 
 
-
-
+De la información anterior, podemos ver que todos los usuarios del dominio (es decir, alllos usuarios del dominio) pueden utilizar RDP en este host. Es común ver esto en hosts de Servicios de Escritorio remoto (RDS) o hosts utilizados como hosts de salto.
 
 
 
