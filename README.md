@@ -1557,4 +1557,75 @@ PS C:\htb>
 ```
 ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/bfdcbad4-4ab3-4c6c-89f2-7c25c21314a4)
 
+## Administrador de SQL Server
+
+BloodHound, una vez más, es una gran apuesta para encontrar este tipo de acceso a través del SQLAdminborde. Podemos buscar SQL Admin Rightsen la Node Infopestaña de un usuario determinado o usar esta consulta Cypher personalizada para buscar:
+
+```
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:SQLAdmin*1..]->(c:Computer) RETURN p2
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6cc9ab6f-86bd-49ec-a3ae-a958c6bdad95)
+
+
+Aquí vemos un usuario que damundsentiene SQLAdminderechos sobre el host ACADEMY-EB-DB01. Con los permisos que tenemos cambiamos el password de la cuenta de dam y nos podriamos loggear a la base de datos y ejecutar comandos.
+
+
+```
+mssqlclient.py INLANEFREIGHT/DAMUNDSEN@172.16.5.150 -windows-auth
+```
+
+Luego podríamos optar enable_xp_cmdshellpor habilitar el procedimiento almacenado xp_cmdshell que permite ejecutar comandos del sistema operativo a través de la base de datos si la cuenta en cuestión tiene los derechos de acceso adecuados.
+
+Finalmente, podemos ejecutar comandos en el formato xp_cmdshell <command>. Aquí podemos enumerar los derechos que nuestro usuario tiene en el sistema y ver que tenemos SeImpersonatePrivilege , que se puede aprovechar en combinación con una herramienta como JuicyPotato , PrintSpoofer o RoguePotato para escalar SYSTEMprivilegios de nivel, según el host de destino, y Utilice este acceso para continuar hacia nuestro objetivo. Estos métodos se tratan en SeImpersonate and SeAssignPrimaryTokenel módulo Escalamiento de privilegios de Windows .
+
+```
+xp_cmdshell whoami /priv
+```
+
+## Problema de "doble salto" de Kerberos
+
+Existe un problema conocido como problema de "doble salto" que surge cuando un atacante intenta utilizar la autenticación Kerberos en dos (o más) saltos. El problema tiene que ver con cómo se otorgan los tickets de Kerberos para recursos específicos. Los tickets de Kerberos no deben verse como contraseñas. Son datos firmados del KDC que indican a qué recursos puede acceder una cuenta. Cuando realizamos la autenticación Kerberos, obtenemos un "ticket" que nos permite acceder al recurso solicitado (es decir, una sola máquina). Por el contrario, cuando usamos una contraseña para autenticarnos, ese hash NTLM se almacena en nuestra sesión y puede usarse en otro lugar sin problemas.
+
+
+***wsmprovhost.exe***, que es el proceso que se genera cuando se genera una sesión remota de Windows PowerShell.
+
+
+```
+tasklist /V |findstr backupadm
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/d2f0124a-e746-432f-9370-5fd7173d8651)
+
+
+> El problema del "doble salto" ocurre a menudo cuando se usa WinRM/Powershell ya que el mecanismo de autenticación predeterminado solo proporciona un ticket para acceder a un recurso específico. Es probable que esto cause problemas al intentar realizar un movimiento lateral o incluso acceder a archivos compartidos desde el shell remoto. En esta situación, la cuenta de usuario que se utiliza tiene derechos para realizar una acción pero se le niega el acceso. La forma más común de obtener shells es atacando una aplicación en el host de destino o utilizando credenciales y una herramienta como PSExec. En ambos escenarios, la autenticación inicial probablemente se realizó a través de SMB o LDAP, lo que significa que el NTLM Hash del usuario se almacenaría en la memoria. A veces tenemos un conjunto de credenciales y estamos restringidos a un método particular de autenticación, como WinRM, o preferimos usar WinRM por diversos motivos.
+
+## Bleeding Edge Vulnerabilities
+
+### NoPac (suplantación de nombre de cuenta Sam)
+
+Esta vulnerabilidad permite escalar privilegios desde un usuario estandar se vale de que cada usuario puede agregar hasta 10 equipos por lo que entendi  aprovecha la posibilidad de cambiar la SamAccountNamecuenta de una computadora a la de un controlador de dominio.
+(ms-DS-MachineAccountQuota = 10)
+
+> Esta vulnerabilidad abarca dos CVE 2021-42278 y 2021-42287 , lo que permite la escalada de privilegios dentro del dominio por parte de cualquier usuario de dominio estándar. al acceso a nivel de administrador de dominio con un solo comando. A continuación se muestra un desglose rápido de lo que proporciona cada CVE con respecto a esta vulnerabilidad.
+
+> Once done, we must request Kerberos tickets causing the service to issue us tickets under the DC's name instead of the new name. When a TGS is requested, it will issue the ticket with the closest matching name. Once done, we will have access as that service and can even be provided with a SYSTEM shell on a Domain Controller.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/86a07234-85eb-40c9-a4b5-ea6bbb1646f7)
+
+ ### PrintNightmare
+
+PrintNightmare is the nickname given to two vulnerabilities (CVE-2021-34527 and CVE-2021-1675) found in the Print Spooler service that runs on all Windows operating systems. Many exploits have been written based on these vulnerabilities that allow for privilege escalation and remote code execution.
+
+We can use rpcdump.py to see if Print System Asynchronous Protocol and Print System Remote Protocol are exposed on the target.
+
+```
+ rpcdump.py @172.16.5.5 | egrep 'MS-RPRN|MS-PAR'
+```
+
+## PetitPotam (MS-EFSRPC)
+
+PetitPotam (CVE-2021-36942) is an LSA spoofing vulnerability that was patched in August of 2021. The flaw allows an unauthenticated attacker to coerce a Domain Controller to authenticate against another host using NTLM over port 445 via the Local Security Authority Remote Protocol (LSARPC) by abusing Microsoft’s Encrypting File System Remote Protocol (MS-EFSRPC). 
+
 
