@@ -1628,4 +1628,262 @@ We can use rpcdump.py to see if Print System Asynchronous Protocol and Print Sys
 
 PetitPotam (CVE-2021-36942) is an LSA spoofing vulnerability that was patched in August of 2021. The flaw allows an unauthenticated attacker to coerce a Domain Controller to authenticate against another host using NTLM over port 445 via the Local Security Authority Remote Protocol (LSARPC) by abusing Microsoft’s Encrypting File System Remote Protocol (MS-EFSRPC). 
 
+## Configuraciones erróneas varias
+
+### Membresía de grupo relacionado con Exchange
+
+ El grupo Exchange Windows Permissionsno figura como grupo protegido, pero a los miembros se les otorga la capacidad de escribir una DACL en el objeto de dominio. Esto se puede aprovechar para otorgar privilegios de DCSync al usuario. Un atacante puede agregar cuentas a este grupo aprovechando una configuración incorrecta de DACL (posible) o aprovechando una cuenta comprometida que sea miembro del grupo Operadores de cuentas.
+
+El grupo Exchange Organization Managementes otro grupo extremadamente poderoso (efectivamente, los "Administradores de dominio" de Exchange) y puede acceder a los buzones de correo de todos los usuarios del dominio. No es raro que los administradores de sistemas sean miembros de este grupo. Este grupo también tiene control total de la unidad organizativa llamada Microsoft Exchange Security Groups, que contiene el grupo Exchange Windows Permissions.
+
+### PrivExchange
+
+El PrivExchangeataque es el resultado de una falla en la PushSubscriptionfunción Exchange Server, que permite a cualquier usuario de dominio con un buzón forzar al servidor Exchange a autenticarse en cualquier host proporcionado por el cliente a través de HTTP.
+
+### Printer Bug
+
+El error de la impresora es una falla en el protocolo MS-RPRN (Protocolo remoto del sistema de impresión). Este protocolo define la comunicación del procesamiento de trabajos de impresión y la gestión del sistema de impresión entre un cliente y un servidor de impresión. Para aprovechar esta falla, cualquier usuario de dominio puede conectarse a la canalización con nombre del spool con el RpcOpenPrintermétodo y utilizar el RpcRemoteFindFirstPrinterChangeNotificationExmétodo, y forzar al servidor a autenticarse en cualquier host proporcionado por el cliente a través de SMB.
+
+The spooler service runs as SYSTEM and is installed by default in Windows servers running Desktop Experience. This attack can be leveraged to relay to LDAP and grant your attacker account DCSync privileges to retrieve all password hashes from AD.
+
+We can use tools such as the Get-SpoolStatus module from this tool (that can be found on the spawned target) or this tool to check for machines vulnerable to the MS-PRN Printer Bug. This flaw can be used to compromise a host in another forest that has Unconstrained Delegation enabled, such as a domain controller. It can help us to attack across forest trusts once we have compromised one forest.
+
+
+## Enumerating DNS Records ( ver la documentacion si quieres ver mas)
+
+Podemos utilizar una herramienta como adidnsdump para enumerar todos los registros DNS de un dominio utilizando una cuenta de usuario de dominio válida. Esto es especialmente útil si la convención de nomenclatura para hosts vuelve a aparecer en nuestra enumeración mediante herramientas BloodHoundcomo SRV01934.INLANEFREIGHT.LOCAL. Si todos los servidores y estaciones de trabajo tienen un nombre no descriptivo, nos resulta difícil saber qué atacar exactamente. Si podemos acceder a las entradas DNS en AD, podemos descubrir potencialmente registros DNS interesantes que apunten a este mismo servidor, como JENKINS.INLANEFREIGHT.LOCAL, que podemos utilizar para planificar mejor nuestros ataques.
+
+```
+adidnsdump -u inlanefreight\\forend ldap://172.16.5.5
+```
+
+### Contraseña en el campo Descripción
+
+Con powerview 
+
+```
+Get-DomainUser * | Select-Object samaccountname,description |Where-Object {$_.Description -ne $null} 
+```
+
+### PASSWD_NOTREQD Field
+
+It is possible to come across domain accounts with the passwd_notreqd field set in the userAccountControl attribute. If this is set, the user is not subject to the current password policy length, meaning they could have a shorter password or no password at all (if empty passwords are allowed in the domain). A password may be set as blank intentionally (sometimes admins don’t want to be called out of hours to reset user passwords) or accidentally hitting enter before entering a password when changing it via the command line.
+
+
+```
+Get-DomainUser -UACFilter PASSWD_NOTREQD | Select-Object samaccountname,useraccountcontrol
+```
+
+### Credentials in SMB Shares and SYSVOL Scripts
+
+The SYSVOL share can be a treasure trove of data, especially in large organizations. We may find many different batch, VBScript, and PowerShell scripts within the scripts directory, which is readable by all authenticated users in the domain.
+
+```
+ls \\academy-ea-dc01\SYSVOL\INLANEFREIGHT.LOCAL\scripts
+```
+
+Es improtante ver que asi se puede enumerar un share desde powershell.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/9ec9bb93-8325-4c07-b46d-2a555d7ab5c5)
+
+
+Taking a closer look at the script, we see that it contains a password for the built-in local administrator on Windows hosts. In this case, it would be worth checking to see if this password is still set on any hosts in the domain. We could do this using CrackMapExec and the --local-auth flag as shown in this module's Internal Password Spraying - from Linux section.
+
+```
+cat \\academy-ea-dc01\SYSVOL\INLANEFREIGHT.LOCAL\scripts\reset_local_admin_pass.vbs
+```
+
+### Group Policy Preferences (GPP) Passwords
+
+When a new GPP is created, an .xml file is created in the SYSVOL share, which is also cached locally on endpoints that the Group Policy applies to. These files can include those used to:
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/ed383494-3a63-4971-a6c5-50974ff73bd2)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/e07f8744-74d3-4746-ae90-433c4f70e1e2)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/0108f120-d114-4df0-b158-753083c08dec)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/ebf29a17-049d-4d1d-a67d-b30e2cb6f505)
+
+
+### ASREPRoasting
+
+It's possible to obtain the Ticket Granting Ticket (TGT) for any account that has the Do not require Kerberos pre-authentication setting enabled. Many vendor installation guides specify that their service account be configured in this way. The authentication service reply (AS_REP) is encrypted with the account’s password, and any domain user can request it.
+
+> Con la autenticación previa, un usuario ingresa su contraseña, que cifra una marca de tiempo. El controlador de dominio lo descifrará para validar que se utilizó la contraseña correcta. Si tiene éxito, se emitirá un TGT al usuario para futuras solicitudes de autenticación en el dominio. Si una cuenta tiene la autenticación previa deshabilitada, un atacante puede solicitar datos de autenticación para la cuenta afectada y recuperar un TGT cifrado del controlador de dominio. Esto puede estar sujeto a un ataque de contraseña fuera de línea utilizando una herramienta como Hashcat o John the Ripper.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/da669948-6cc3-4372-b38b-c808421b6514)
+
+
+ASREPRoasting es similar a Kerberoasting, pero implica atacar el AS-REP en lugar del TGS-REP. No se requiere un SPN. Esta configuración se puede enumerar con PowerView o herramientas integradas como el módulo PowerShell AD.
+
+. Si un atacante tiene GenericWritepermisos GenericAllsobre una cuenta, puede habilitar este atributo y obtener el ticket AS-REP para descifrar fuera de línea para recuperar la contraseña de la cuenta antes de deshabilitar el atributo nuevamente. Al igual que Kerberoasting, el éxito de este ataque depende de que la cuenta tenga una contraseña relativamente débil.
+
+```
+#Enumeración del valor DONT_REQ_PREAUTH utilizando Get-DomainUser
+
+Get-DomainUser -PreauthNotRequired | select samaccountname,userprincipalname,useraccountcontrol | fl
+
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/bd4eeab4-76c5-49b9-8c79-180af59050aa)
+
+
+With this information in hand, the Rubeus tool can be leveraged to retrieve the AS-REP in the proper format for offline hash cracking. This attack does not require any domain user context and can be done by just knowing the SAM name for the user without Kerberos pre-auth. We will see an example of this using Kerbrute later in this section. Remember, add the /nowrap flag so the ticket is not column wrapped and is retrieved in a format that we can readily feed into Hashcat.
+
+```
+# We can then crack the hash offline using Hashcat with mode 18200.
+.\Rubeus.exe asreproast /user:mmorgan /nowrap /format:hashcat
+hashcat -m 18200 ilfreight_asrep /usr/share/wordlists/rockyou.txt
+```
+
+La herramienta Kerbrute nos muestra cuando encuentra usuarios asi:
+
+
+```
+# When performing user enumeration with Kerbrute, the tool will automatically retrieve the AS-REP for any users found that do not require Kerberos pre-authentication.
+# Linux
+
+ kerbrute userenum -d inlanefreight.local --dc 172.16.5.5 /opt/jsmith.txt 
+
+```
+With a list of valid users, we can use Get-NPUsers.py from the Impacket toolkit to hunt for all users with Kerberos pre-authentication not required. 
+
+```
+GetNPUsers.py INLANEFREIGHT.LOCAL/ -dc-ip 172.16.5.5 -no-pass -usersfile valid_ad_users 
+```
+
+> La Política de grupo proporciona a los administradores muchas configuraciones avanzadas que se pueden aplicar tanto al usuario como a los objetos de la computadora en un entorno AD. La política de grupo, cuando se usa correctamente, es una excelente herramienta para reforzar un entorno de AD mediante la configuración de los ajustes del usuario, los sistemas operativos y las aplicaciones. Dicho esto, los atacantes también pueden abusar de la Política de grupo. Si podemos obtener derechos sobre un objeto de política de grupo a través de una mala configuración de ACL, podríamos aprovechar esto para el movimiento lateral, la escalada de privilegios e incluso el compromiso del dominio y como un mecanismo de persistencia dentro del dominio. Comprender cómo enumerar y atacar los GPO puede darnos una ventaja y, a veces, puede ser el boleto para lograr nuestro objetivo en un entorno bastante cerrado.
+
+
+## Abuso de objetos de política de grupo (GPO)
+
+La Política de grupo proporciona a los administradores muchas configuraciones avanzadas que se pueden aplicar tanto al usuario como a los objetos de la computadora en un entorno AD. La política de grupo, cuando se usa correctamente, es una excelente herramienta para reforzar un entorno de AD mediante la configuración de los ajustes del usuario, los sistemas operativos y las aplicaciones. Dicho esto, los atacantes también pueden abusar de la Política de grupo. Si podemos obtener derechos sobre un objeto de política de grupo a través de una mala configuración de ACL, podríamos aprovechar esto para el movimiento lateral, la escalada de privilegios e incluso el compromiso del dominio y como un mecanismo de persistencia dentro del dominio. Comprender cómo enumerar y atacar los GPO puede darnos una ventaja y, a veces, puede ser el boleto para lograr nuestro objetivo en un entorno bastante cerrado.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/b19135e8-f0c4-465f-96f3-ed2251758220)
+
+#### Enumerar nombres de GPO con PowerView
+
+```
+Get-DomainGPO |select displayname
+
+```
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/1004f7de-f793-4be7-a82a-8ce5c0f78469)
+
+Esto puede ser útil para que podamos comenzar a ver qué tipos de medidas de seguridad existen (como denegar el acceso a cmd.exe y una política de contraseña separada para las cuentas de servicio). Podemos ver que el inicio de sesión automático está en uso, lo que puede significar que hay una contraseña legible en un GPO, y ver que los Servicios de certificados de Active Directory (AD CS) están presentes en el dominio. Si las herramientas de administración de políticas de grupo están instaladas en el host desde el que estamos trabajando, podemos usar varios cmdlets de GroupPolicy integrados para Get-GPOrealizar la misma enumeración.
+
+
+```
+Get-GPO -All | Select DisplayName
+```
+
+A continuación, podemos comprobar si un usuario que podemos controlar tiene algún derecho sobre un GPO. A usuarios o grupos específicos se les pueden otorgar derechos para administrar uno o más GPO. Una buena primera comprobación es ver si todo el grupo de usuarios del dominio tiene derechos sobre uno o más GPO.
+
+
+```
+## PowerView
+$sid=Convert-NameToSid "Domain Users"
+Get-DomainGPO | Get-ObjectAcl | ?{$_.SecurityIdentifier -eq $sid}
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/2440fd48-f361-43a8-990e-4769122e56e4)
+
+```
+Conversión de GUID de GPO a nombre
+
+Get-GPO -Guid 7CA9C789-14CE-46E3-A722-83F4097AF532
+
+```
+
+> Podríamos utilizar una herramienta como SharpGPOAbuseaprovechar esta configuración incorrecta de GPO realizando acciones como agregar un usuario que controlamos al grupo de administradores locales en uno de los hosts afectados, crear una tarea programada inmediata en uno de los hosts para brindarnos un shell inverso o configurar un script de inicio de computadora malicioso para proporcionarnos un shell inverso o similar. Al utilizar una herramienta como esta, debemos tener cuidado porque se pueden ejecutar comandos que afectan a todas las computadoras dentro de la unidad organizativa a la que está vinculado el GPO. Si encontramos un GPO editable que se aplica a una unidad organizativa con 1000 computadoras, no querríamos cometer el error de agregarnos como administrador local a tantos hosts. Algunas de las opciones de ataque disponibles con esta herramienta nos permiten especificar un usuario o host objetivo. Los hosts que se muestran en la imagen de arriba no son explotables,
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/abde54cc-fae7-459b-9053-183a30891361)
+
+
+## TRUSTS
+
+A trust is used to establish forest-forest or domain-domain (intra-domain) authentication, which allows users to access resources in (or perform administrative tasks) another domain, outside of the main domain where their account resides. A trust creates a link between the authentication systems of two domains and may allow either one-way or two-way (bidirectional) communication. An organization can create various types of trusts:
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/1ae74a5b-1057-4fb2-8455-cc50492364c2)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/9a398a2f-f108-4cbd-bca0-5e038ac28540)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/7b2b2902-effa-4a25-ba9a-1bb678beae71)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/bffe2a5d-63ad-438b-9868-b5094e9682ba)
+
+
+## Enumerating Trust Relationships
+
+We can use the Get-ADTrust cmdlet to enumerate domain trust relationships. This is especially helpful if we are limited to just using built-in tools.
+
+```
+Import-Module activedirectory
+Get-ADTrust -Filter *
+
+# PowerView
+
+ Get-DomainTrust
+ Get-DomainTrustMapping
+#From here, we could begin performing enumeration across the trusts. For example, we could look at all users in the child domain:
+Get-DomainUser -Domain LOGISTICS.INLANEFREIGHT.LOCAL | select SamAccountName
+
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/3833cb64-c9ee-4ef6-98d7-88859afb079a)
+
+
+## Attacking Domain Trusts - Child -> Parent Trusts - from Windows
+
+The sidHistory attribute is used in migration scenarios. If a user in one domain is migrated to another domain, a new account is created in the second domain. The original user's SID will be added to the new user's SID history attribute, ensuring that the user can still access resources in the original domain.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/eb955e64-79c0-4016-a49c-013ce5d3b0a3)
+
+
+### ExtraSIDs
+
+Ahora podemos recopilar todos los datos necesarios para realizar el ataque ExtraSids. Primero, necesitamos obtener el hash NT para KRBTGT.cuenta, que es una cuenta de servicio para el Centro de distribución de claves (KDC) en Active Directory. La cuenta KRB (Kerberos) TGT (Ticket Granting Ticket) se utiliza para cifrar/firmar todos los tickets Kerberos otorgados dentro de un dominio determinado. Los controladores de dominio utilizan la contraseña de la cuenta para descifrar y validar tickets de Kerberos. La cuenta KRBTGT se puede utilizar para crear tickets Kerberos TGT que se pueden utilizar para solicitar tickets TGS para cualquier servicio en cualquier host del dominio. Esto también se conoce como ataque Golden Ticket y es un mecanismo de persistencia bien conocido para los atacantes en entornos de Active Directory. La única forma de invalidar un Golden Ticket es cambiar la contraseña de la cuenta KRBTGT, lo que debe hacerse periódicamente y definitivamente después de una evaluación de prueba de penetración donde se alcanza el compromiso total del dominio.
+
+
+```
+Obtención del NT Hash de la cuenta KRBTGT usando Mimikatz
+mimikatz # lsadump::dcsync /user:LOGISTICS\krbtgt
+# PowerView
+
+Get-DomainSID
+
+Get-ADGroup -Identity "Enterprise Admins" -Server "INLANEFREIGHT.LOCAL"
+
+Get-DomainGroup -Domain INLANEFREIGHT.LOCAL -Identity "Enterprise Admins" | select distinguishedname,objectsid
+
+## Creating a Golden Ticket with Mimikatz
+
+ kerberos::golden /user:hacker /domain:LOGISTICS.INLANEFREIGHT.LOCAL /sid:S-1-5-21-2806153819-209893948-922872689 /krbtgt:9d765b482771505cbe97411065964d5f /sids:S-1-5-21-3842939050-3880317879-2865463114-519 /ptt
+
+```
+
+### Ejercicio
+
+Vemos cuales son los Trust aunque se podria hacer con PowerView use el modulo de AD. Vemos cual es el child pues no fijamos en el campo IntraForest esta en True. ( ahi entonces dice que significa que es child).
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/d698af2e-84e9-4910-ad8d-961e88dfa387)
+
+```
+Get-ADTrust
+Get-DomainTrust
+Get-DomainTrustMapping
+# Powerview
+What is the SID of the Enterprise Admins group in the root domain?
+Get-DomainGroup -Domain INLANEFREIGHT.LOCAL -Identity "Enterprise Admins" | select distinguishedname,objectsid
+
+
+```
+
 
