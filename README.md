@@ -2043,6 +2043,22 @@ El mitre primero son las tacticas y despues las tecnicas.
 
 > Entonces nuestra técnica se clasificaría en TA0006/T1558.003. Así es como se leería el árbol Táctica/Técnica. Hay muchas formas diferentes de navegar por el marco. Solo queríamos brindar algunas aclaraciones sobre lo que estábamos buscando y cómo definimos tácticas versus técnicas cuando hablamos de MITRE ATT&CK en este módulo. Este marco es excelente para explorar si tiene curiosidad acerca de un Tactico Techniquey desea obtener más información al respecto.
 
+## IIS Ruta por defecto 
 
+```
+Windows Server 2019 y Windows Server 2016:
+
+La instalación predeterminada de IIS se encuentra en C:\inetpub.
+Windows Server 2012 R2 y Windows Server 2012:
+
+La instalación predeterminada de IIS se encuentra en C:\inetpub.
+Windows Server 2008 R2:
+
+La instalación predeterminada de IIS se encuentra en C:\inetpub.
+Windows 10 y Windows 8.1:
+
+La instalación predeterminada de IIS se encuentra en C:\inetpub.
+Por lo tanto, puedes encontrar los archivos y configuraciones de IIS en el directorio C:\inetpub en la mayoría de los casos. Sin embargo, ten en cuenta que puedes haber instalado IIS en una ubicación personalizada durante la configuración, en cuyo caso la ubicación será diferente.
+```
 
 
