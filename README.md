@@ -2061,4 +2061,11 @@ La instalación predeterminada de IIS se encuentra en C:\inetpub.
 Por lo tanto, puedes encontrar los archivos y configuraciones de IIS en el directorio C:\inetpub en la mayoría de los casos. Sin embargo, ten en cuenta que puedes haber instalado IIS en una ubicación personalizada durante la configuración, en cuyo caso la ubicación será diferente.
 ```
 
+## Ver programas instalados Powershell
+
+```
+Get-WmiObject -Class Win32_Product | Select-Object Name
+```
+
+
 
