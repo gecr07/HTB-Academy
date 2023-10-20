@@ -2066,6 +2066,12 @@ Por lo tanto, puedes encontrar los archivos y configuraciones de IIS en el direc
 ```
 Get-WmiObject -Class Win32_Product | Select-Object Name
 ```
+Obtener RDP agregando usuarios a un grupo....
+```
+Add-LocalGroupMember -Group 'Administrators' -Member “s**_**”
 
+Turned on RDP
 
+Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+```
 
